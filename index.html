@@ -721,7 +721,13 @@ function initDashboard(){
     return fetch(SURVEY_URLS[k]).then(function(r){return r.text();}).then(function(csv){return{key:k,csv:csv};});
   });
   Promise.all([fetchTracker].concat(fetchSurveys)).then(function(results){
-    R=parseTracker(results[0]);
+    var trackerCsv=results[0];
+    console.log("TRACKER CSV length:", trackerCsv.length);
+    console.log("TRACKER first 500 chars:", trackerCsv.substring(0,500));
+    console.log("TRACKER lines 0-5:", trackerCsv.split(/\r?\n/).slice(0,6));
+    R=parseTracker(trackerCsv);
+    console.log("PARSED R length:", R.length);
+    if(R.length>0) console.log("FIRST RECORD:", JSON.stringify(R[0]));
     RESP={};
     for(var i=1;i<results.length;i++){
       var parsed=parseSurvey(results[i].csv,results[i].key);
