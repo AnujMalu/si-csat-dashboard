@@ -742,6 +742,11 @@ function initDashboard(){
       var parsed=parseSurvey(results[i].csv,results[i].key);
       Object.keys(parsed).forEach(function(k){RESP[k]=parsed[k];});
     }
+    // Back-fill scores from survey responses where tracker has no score
+    R.forEach(function(d){
+      var resp=RESP[d.n];
+      if(resp&&!d.sr&&!d.or){d.sc=resp.avg;d.sr=1;}
+    });
     var el=document.getElementById("lastUpdated");
     if(el){
       var now=new Date();
