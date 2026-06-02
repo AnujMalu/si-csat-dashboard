@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SI CSAT Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#1a1a1a;background:#f0f2f5;padding:20px}
+.wrap{max-width:1360px;margin:0 auto}
+.header{background:#1F3864;color:#fff;border-radius:10px;padding:16px 22px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:18px;font-weight:600}
+.header .sub{font-size:12px;opacity:.55;margin-top:2px}
+.note{font-size:11px;background:#FFF3CD;border:1px solid #FFC107;border-radius:6px;padding:7px 12px;margin-bottom:12px;color:#856404}
+.abar{background:#1F3864;border-radius:8px;padding:8px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:38px}
+.abar-l{font-size:12px;color:rgba(255,255,255,.5);margin-right:4px;flex-shrink:0}
+.atag{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:2px 9px;font-size:12px;color:#fff;display:inline-flex;align-items:center;gap:4px}
+.filters{background:#fff;border-radius:10px;padding:14px 18px;margin-bottom:12px;border:1px solid #e0e0e0}
+.frow{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:7px}
+.frow:last-child{margin-bottom:0}
+.fl{font-size:13px;font-weight:600;color:#555;width:100px;flex-shrink:0}
+.flabel-sub{font-size:10px;color:#aaa;font-weight:400;margin-left:3px}
+.pill{font-size:12px;padding:4px 12px;border-radius:20px;border:1.5px solid #ccc;background:#fff;color:#555;cursor:pointer;transition:all .12s}
+.pill:hover{border-color:#1F3864;color:#1F3864}
+.pill.on{background:#1F3864;color:#fff;border-color:#1F3864;font-weight:600}
+.pill.multi.on{background:#2E74B5;border-color:#2E74B5}
+.pill .sub{font-size:10px;opacity:.75}
+.headline{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.hcard{background:#fff;border-radius:10px;padding:16px;border:2px solid #e0e0e0;cursor:pointer;transition:border-color .12s}
+.hcard:hover{border-color:#1F3864}
+.hcard.active{border-color:#1F3864;background:#EEF3FB}
+.hcard-l{font-size:12px;color:#666;font-weight:600;margin-bottom:4px}
+.hcard-v{font-size:30px;font-weight:700;line-height:1;margin-bottom:4px}
+.hcard-s{font-size:12px;color:#888}
+.hcard-h{font-size:11px;color:#185FA5;margin-top:3px}
+.score-g{color:#1a7a40}
+.score-a{color:#8a4500}
+.score-r{color:#a02020}
+.score-n{color:#bbb}
+.main{background:#fff;border-radius:10px;border:1px solid #e0e0e0;overflow:hidden}
+.main-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e0e0e0;background:#f5f6f7}
+.main-title{font-size:14px;font-weight:700;color:#1a1a1a}
+.main-sub{font-size:12px;color:#888}
+.sort-row{display:flex;gap:8px;align-items:center}
+.sort-btn{font-size:12px;padding:3px 10px;border-radius:20px;border:1px solid #ccc;background:#fff;color:#555;cursor:pointer}
+.sort-btn.on{background:#1F3864;color:#fff;border-color:#1F3864}
+.tw{overflow:auto;max-height:560px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:900px}
+.tbl thead th{position:sticky;top:0;padding:9px 12px;text-align:left;font-size:12px;font-weight:700;color:#444;border-bottom:2px solid #e0e0e0;background:#f5f6f7;white-space:nowrap;z-index:1;cursor:pointer;user-select:none}
+.tbl thead th:hover{background:#eaedf0}
+.tbl thead th.sort-asc::after{content:" ▲"}
+.tbl thead th.sort-desc::after{content:" ▼"}
+.tbl tbody td{padding:8px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+.tbl tbody tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover td{background:#fafbfc}
+.tbl tfoot td{padding:10px 12px;font-weight:700;background:#eef2f7;border-top:2px solid #c8d4e0;font-size:13px;position:sticky;bottom:0}
+.b{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap}
+.bok{background:#d5f5e3;color:#1a7a40}
+.bawait{background:#fde8cc;color:#8a4500}
+.bneu{background:#ebebeb;color:#555}
+.bint{background:#dceefb;color:#145e9e}
+.bdom{background:#d5f5e3;color:#1a7a40}
+.bnoc{background:#f0e6ff;color:#5a1f9a}
+.score-bar-wrap{display:flex;align-items:center;gap:8px}
+.score-bar{height:8px;border-radius:4px;min-width:2px;transition:width .3s}
+.score-num{font-size:13px;font-weight:700;width:30px;flex-shrink:0}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:12px;width:92%;max-width:1000px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.2)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:2px solid #e0e0e0;background:#f5f6f7;flex-shrink:0}
+.modal-title{font-size:15px;font-weight:700;color:#1a1a1a}
+.modal-close{cursor:pointer;font-size:24px;color:#888;line-height:1;padding:0 4px}
+.modal-close:hover{color:#1a1a1a}
+.tbl th{position:sticky;top:0;padding:9px 12px;text-align:left;font-size:12px;font-weight:700;color:#444;border-bottom:2px solid #e0e0e0;background:#f5f6f7;white-space:nowrap;z-index:1;cursor:pointer;user-select:none;resize:horizontal;overflow:hidden;min-width:60px}
+.tbl th:hover{background:#eaedf0}
+.tbl th.sort-asc::after{content:" \25B2"}
+.tbl th.sort-desc::after{content:" \25BC"}
+.op-toggle{font-size:12px;padding:5px 14px;border-radius:20px;border:1.5px solid #2E74B5;background:#fff;color:#2E74B5;cursor:pointer;font-weight:500;transition:all .12s}
+.op-toggle.on{background:#2E74B5;color:#fff}
+.col-op{display:none}
+.show-op .col-op{display:table-cell}
+.modal-body{overflow:auto;flex:1}
+.chip{font-size:12px;padding:5px 14px;border-radius:20px;border:1.5px solid #ccc;background:#fff;color:#555;cursor:pointer;transition:all .12s;display:inline-flex;align-items:center;gap:6px}
+.chip:hover{border-color:#1F3864}
+.chip.active{font-weight:600;color:#fff}
+.chip-nc.active{background:#5a1f9a;border-color:#5a1f9a}
+.chip-ns.active{background:#555;border-color:#555}
+.chip-aw.active{background:#8a4500;border-color:#8a4500}
+.chip-re.active{background:#1a7a40;border-color:#1a7a40}
+.chip-dot{width:8px;height:8px;border-radius:50%}
+.chip-nc .chip-dot{background:#5a1f9a}
+.chip-ns .chip-dot{background:#999}
+.chip-aw .chip-dot{background:#8a4500}
+.chip-re .chip-dot{background:#1a7a40}
+.score-link{cursor:pointer;text-decoration:underline;text-underline-offset:2px;text-decoration-style:dotted}
+.q-bar-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.q-label{font-size:13px;color:#1a1a1a;flex:1}
+.q-bar-bg{width:140px;height:10px;background:#e4e8ed;border-radius:5px;overflow:hidden;flex-shrink:0}
+.q-bar-fill{height:100%;border-radius:5px}
+.q-score{font-size:13px;font-weight:700;width:24px;text-align:right;flex-shrink:0}
+.q-open{background:#f8f9fa;border-left:3px solid #2E74B5;padding:10px 14px;margin-bottom:8px;border-radius:0 6px 6px 0}
+.q-open-label{font-size:11px;font-weight:600;color:#2E74B5;margin-bottom:3px}
+.q-open-text{font-size:13px;color:#1a1a1a;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="header">
+  <div>
+    <h1>SI Client Health &amp; CSAT Dashboard</h1>
+    <div class="sub">Account-level CSAT &amp; revenue-weighted view &middot; <span id="lastUpdated">Loading&hellip;</span></div>
+  </div>
+</div>
+<div class="note">
+  <strong>Scoring note:</strong> Accounts with no response are scored 0. Two rows per account (Senior POC &amp; Operational POC) — same revenue, separate CSAT scores.
+</div>
+<div class="abar"><span class="abar-l">Active filters:</span><span id="atags"></span></div>
+<div class="filters">
+  <div class="frow"><span class="fl">POC type</span>
+    <button class="pill on" data-f="poc" data-v="both">Both</button>
+    <button class="pill" data-f="poc" data-v="sr">Senior POC</button>
+    <button class="pill" data-f="poc" data-v="op">Operational POC</button>
+  </div>
+  <div class="frow"><span class="fl">Geography</span>
+    <button class="pill" data-f="geo" data-v="All">All</button>
+    <button class="pill on" data-f="geo" data-v="International">International</button>
+    <button class="pill" data-f="geo" data-v="Domestic">Domestic</button>
+  </div>
+  <div class="frow"><span class="fl">Phase<span class="flabel-sub">multi</span></span>
+    <button class="pill on" data-f="phase" data-v="All">All</button>
+    <button class="pill multi" data-f="phase" data-v="Phase 1">P1 <span class="sub">Handover</span></button>
+    <button class="pill multi" data-f="phase" data-v="Phase 2">P2 <span class="sub">Delivery</span></button>
+    <button class="pill multi" data-f="phase" data-v="Phase 3">P3 <span class="sub">Pre Go-Live</span></button>
+    <button class="pill multi" data-f="phase" data-v="Phase 4">P4 <span class="sub">Post Go-Live</span></button>
+  </div>
+  <div class="frow"><span class="fl">Delivery unit<span class="flabel-sub">multi</span></span>
+    <button class="pill" data-f="du" data-v="All">All DUs</button>
+    <button class="pill multi on" data-f="du" data-v="Gaming">Gaming</button>
+    <button class="pill multi on" data-f="du" data-v="Web & Mobile">Web &amp; Mobile</button>
+    <button class="pill multi on" data-f="du" data-v="Data">Data</button>
+    <button class="pill multi on" data-f="du" data-v="Video Tech">Video Tech</button>
+    <button class="pill multi" data-f="du" data-v="Content Management">Content Mgmt</button>
+    <button class="pill multi" data-f="du" data-v="Mixed">Mixed</button>
+  </div>
+</div>
+<div class="headline" id="headline"></div>
+<div id="statusChips" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap"></div>
+<div class="main">
+  <div class="main-head">
+    <div>
+      <div class="main-title" id="tableTitle">All accounts — Sr &amp; Op POC</div>
+      <div class="main-sub" id="tableSub"></div>
+    </div>
+    <div class="sort-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="op-toggle" id="opToggle">Show operational columns</button>
+      <span style="font-size:12px;color:#888">Sort by:</span>
+      <button class="sort-btn on" data-sort="name">Account</button>
+      <button class="sort-btn" data-sort="score">CSAT score</button>
+      <button class="sort-btn" data-sort="rev">Revenue</button>
+    </div>
+  </div>
+  <div class="tw"><table class="tbl" id="mainTbl">
+    <thead><tr>
+      <th data-col="name" style="min-width:160px">Account</th>
+      <th data-col="poc" style="min-width:90px">POC type</th>
+      <th data-col="geo" style="min-width:60px">Geo</th>
+      <th data-col="du" style="min-width:110px">Delivery unit</th>
+      <th data-col="phase" style="min-width:80px">Phase</th>
+      <th data-col="ao" style="min-width:120px">Account Owner</th>
+      <th data-col="dm" style="min-width:120px">Delivery Manager</th>
+      <th data-col="status" style="min-width:120px">Survey status</th>
+      <th data-col="score" style="min-width:140px">CSAT score</th>
+      <th data-col="rev" style="min-width:110px">FY27 revenue</th>
+      <th data-col="email" class="col-op" style="min-width:180px">Contact email</th>
+      <th data-col="reason" class="col-op" style="min-width:150px">Reason not sent</th>
+      <th data-col="target" class="col-op" style="min-width:110px">Target send date</th>
+    </tr></thead>
+    <tbody id="mainBody"></tbody>
+    <tfoot id="mainFoot"></tfoot>
+  </table></div>
+</div>
+</div>
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="modalTitle"></span>
+      <span class="modal-close" id="modalClose">&times;</span>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+<script>
+// ── LIVE DATA SOURCES ──
+var TRACKER_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Thzzz8KPu1bjQ-eg5ZYub7VfmnfqDOb18jtWOikYxCkMQdSd8mbeyLfAXziYqns4XJkaY9jPZZBi/pub?output=csv";
+var SURVEY_URLS={
+  s1:"https://docs.google.com/spreadsheets/d/e/2PACX-1vSx8BmXx355R9D_XZ-PWS5a2RiMVPcIAkho-R7J6_5_Z_adG1jWQGB7aQVMuWKKPof_2XgJRYXp73P0/pub?output=csv",
+  s2:"https://docs.google.com/spreadsheets/d/e/2PACX-1vSx0HO4Mtyc9Q_IxUKEHecE81-jOvawxLBlC1PLRA7mpr50sZDZkqKakkqWnDpKvBdozmWkw0AOK7pU/pub?output=csv",
+  s3:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQSwscf40H6-xWGMwJfLl5XTSRj311pXrShJtbygtIDonJarghHs7qWHGAUPdBBpZ_ubkdakeQlpNky/pub?output=csv",
+  s4:"https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6GyG0BBPeiLFD9GswhbY5tklaFCZTdzXx7fVJ7qwIj57M7B0GJWf6mRBPlO0Fllnlaho9-gfdlYR8/pub?output=csv"
+};
+var NAME_MAP={
+  "Shobhit Asai":"ICC Business Corporation FZ LLC",
+  "Aziz Bawany":"Zuffa International, LLC",
+  "Harsimran Singh":"Federation Internationale De Hockey",
+  "Edie Kelly":"Women's Super League",
+  "Kirby Lasi Hermanto":"Asia Football Marketing Limited",
+  "Alessandro Stornelli":"Scuderia Ferrari",
+  "Alessandro":"Scuderia Ferrari",
+  "Chris Wells":"World Archery",
+  "Chris Dawahare":"Equibase Company LLC"
+};
+var USERNAME_MAP={
+  "cwells1604@gmail.com":"Chris Wells",
+  "chrisdawahare@gmail.com":"Chris Dawahare"
+};
+var RISHITA=["rishita","Rishita","RISHITA"];
+var SURVEY_CONFIG={
+  s1:{survey:"Phase 4 — Post Go-Live",nameCol:"Name",
+      qShort:["Continued value","Product evolution","Support quality","Strategic partnership","Overall satisfaction"],
+      openPrefix:["Optional"],openShort:["Features / innovations","Alternate providers?","Other feedback"]},
+  s2:{survey:"Phase 3/4 — Delivery & Post Go-Live",nameCol:"Name",
+      qShort:["Onboarding experience","Delivery experience","Solution reliability","Business goals achievement","CSM & support satisfaction","Proactive insights sharing","Likelihood to recommend"],
+      openPrefix:["Optional"],openShort:["Features / innovations","Other suggestions"]},
+  s3:{survey:"Phase 2 — Mid-Delivery (CXO)",nameCol:"Username",
+      qShort:["Thought partner vs executor","Ground reality of updates","Proactive risk escalation","Outcome confidence","Likelihood to recommend"],
+      openPrefix:["What"],openShort:["What to continue to go-live","Biggest concern"]},
+  s4:{survey:"Phase 4 — Post Go-Live",nameCol:"Username",
+      qShort:["Business result delivered","Thought partner vs brief-taker","Proactive on issues","Contribution beyond contract","Ongoing engagement","Likelihood to extend/expand","Likelihood to recommend"],
+      openPrefix:["What","If you were"],openShort:["What to keep / change","Message to new sponsor"]}
+};
+
+// ── GLOBALS ──
+var R=[];
+var RESP={};
+
+var F={poc:"both",geo:"International",phase:[],du:["Gaming","Web & Mobile","Data","Video Tech"]};
+var SORT={col:"name",dir:1};
+var ACTIVE_CARD=null;
+var CHIP_FILTER=null;
+var DRILLS=[];
+
+function openModal(title,body){
+  document.getElementById("modalTitle").textContent=title;
+  document.getElementById("modalBody").innerHTML=body;
+  document.getElementById("modalBg").classList.add("show");
+  document.body.style.overflow="hidden";
+}
+function closeModal(){
+  document.getElementById("modalBg").classList.remove("show");
+  document.body.style.overflow="";
+}
+
+document.addEventListener("click",function(e){
+  // Status chips
+  var chip=e.target.closest("[data-chip]");
+  if(chip){
+    var k=chip.getAttribute("data-chip");
+    CHIP_FILTER=CHIP_FILTER===k?null:k;
+    renderTable(getRows());
+    var allRows=buildRows(gf());
+    renderChips(allRows);
+    return;
+  }
+  // Score drill-down
+  var sl=e.target.closest("[data-idx]");
+  if(sl){
+    var idx=parseInt(sl.getAttribute("data-idx"));
+    var d=DRILLS[idx];
+    if(d)showQuestionDetail(d.n,d.poc);
+    return;
+  }
+  // Pills
+  var pill=e.target.closest("[data-f]");
+  if(pill){
+    var fk=pill.getAttribute("data-f"),fv=pill.getAttribute("data-v");
+    var isMulti=pill.classList.contains("multi");
+    if(!isMulti){
+      F[fk]=fv;
+      document.querySelectorAll("[data-f=\""+fk+"\"]").forEach(function(p){p.classList.toggle("on",p.getAttribute("data-v")===fv);});
+    } else {
+      if(fv==="All"){F[fk]=[];document.querySelectorAll("[data-f=\""+fk+"\"]").forEach(function(p){p.classList.toggle("on",p.getAttribute("data-v")==="All");});}
+      else{
+        var arr=F[fk],idx=arr.indexOf(fv);
+        if(idx>=0)arr.splice(idx,1);else arr.push(fv);
+        document.querySelector("[data-f=\""+fk+"\"][data-v=\"All\"]").classList.toggle("on",arr.length===0);
+        document.querySelectorAll("[data-f=\""+fk+"\"].multi").forEach(function(p){p.classList.toggle("on",arr.indexOf(p.getAttribute("data-v"))>=0);});
+      }
+    }
+    ACTIVE_CARD=null;
+// ── STATUS CHIP FILTER ──
+
+
+
+
+return;
+  }
+  // Headline cards
+  var hc=e.target.closest("[data-card]");
+  if(hc){
+    var cid=hc.getAttribute("data-card");
+    if(ACTIVE_CARD===cid){ACTIVE_CARD=null;document.querySelectorAll("[data-card]").forEach(function(c){c.classList.remove("active");});render();return;}
+    ACTIVE_CARD=cid;
+    document.querySelectorAll("[data-card]").forEach(function(c){c.classList.toggle("active",c.getAttribute("data-card")===cid);});
+    render();return;
+  }
+  // Op toggle
+  if(e.target.id==="opToggle"){
+    var tbl=document.getElementById("mainTbl");
+    var on=tbl.classList.toggle("show-op");
+    e.target.classList.toggle("on",on);
+    e.target.textContent=on?"Hide operational columns":"Show operational columns";
+    return;
+  }
+  // Sort buttons
+  var sb=e.target.closest("[data-sort]");
+  if(sb){
+    var sc=sb.getAttribute("data-sort");
+    if(SORT.col===sc)SORT.dir*=-1;else{SORT.col=sc;SORT.dir=1;}
+    document.querySelectorAll("[data-sort]").forEach(function(b){b.classList.toggle("on",b.getAttribute("data-sort")===sc);});
+    renderTable(getRows());return;
+  }
+  // Column header sort
+  var th=e.target.closest("th[data-col]");
+  if(th){
+    var sc2=th.getAttribute("data-col");
+    var colMap={name:"name",poc:"poc",geo:"geo",du:"du",phase:"phase",email:"email",status:"status",score:"score",rev:"rev"};
+    var sk=colMap[sc2];
+    if(SORT.col===sk)SORT.dir*=-1;else{SORT.col=sk;SORT.dir=1;}
+    document.querySelectorAll("th[data-col]").forEach(function(t){t.classList.remove("sort-asc","sort-desc");});
+    th.classList.add(SORT.dir===1?"sort-asc":"sort-desc");
+    renderTable(getRows());return;
+  }
+  // Clear filter tags
+  var xt=e.target.closest("[data-clear]");
+  if(xt){
+    var fk2=xt.getAttribute("data-clear"),fv2=xt.getAttribute("data-clearv");
+    if(fv2){
+      var arr2=F[fk2],i2=arr2.indexOf(fv2);
+      if(i2>=0)arr2.splice(i2,1);
+      document.querySelector("[data-f=\""+fk2+"\"][data-v=\"All\"]").classList.toggle("on",arr2.length===0);
+      document.querySelectorAll("[data-f=\""+fk2+"\"].multi").forEach(function(p){p.classList.toggle("on",arr2.indexOf(p.getAttribute("data-v"))>=0);});
+    } else {
+      F[fk2]=fk2==="poc"?"both":"All";
+      document.querySelectorAll("[data-f=\""+fk2+"\"]").forEach(function(p){p.classList.toggle("on",p.getAttribute("data-v")===F[fk2]);});
+    }
+    ACTIVE_CARD=null;uab();render();return;
+  }
+  if(e.target.id==="modalClose"||e.target.id==="modalBg")closeModal();
+});
+document.addEventListener("keydown",function(e){if(e.key==="Escape")closeModal();});
+
+function uab(){
+  var duLbl={"Web & Mobile":"Web&Mobile","Content Management":"Content Mgmt"};
+  var phLbl={"Phase 1":"P1·Handover","Phase 2":"P2·Delivery","Phase 3":"P3·Pre GL","Phase 4":"P4·Post GL"};
+  var parts=[];
+  if(F.poc!=="both")parts.push("<span class=\"atag\">"+(F.poc==="sr"?"Senior POC only":"Op POC only")+"<span data-clear=\"poc\">&times;</span></span>");
+  if(F.geo!=="All")parts.push("<span class=\"atag\">"+F.geo+"<span data-clear=\"geo\">&times;</span></span>");
+  F.phase.forEach(function(v){parts.push("<span class=\"atag\">"+(phLbl[v]||v)+"<span data-clear=\"phase\" data-clearv=\""+v+"\">&times;</span></span>");});
+  F.du.forEach(function(v){parts.push("<span class=\"atag\">"+(duLbl[v]||v)+"<span data-clear=\"du\" data-clearv=\""+v+"\">&times;</span></span>");});
+  document.getElementById("atags").innerHTML=parts.length?parts.join(""):"<span style=\"font-size:12px;color:rgba(255,255,255,.45);font-style:italic\">None &mdash; all accounts shown</span>";
+}
+
+function gf(){
+  return R.filter(function(d){
+    return (F.geo==="All"||d.geo===F.geo)&&(F.phase.length===0||F.phase.indexOf(d.phase)>=0)&&(F.du.length===0||F.du.indexOf(d.du)>=0);
+  });
+}
+
+// Build flat rows: one per POC per account
+function buildRows(data){
+  var rows=[];
+  var uO=F.poc!=="sr",uS=F.poc!=="op";
+  data.forEach(function(d){
+    if(uS){
+      var email=d.se&&d.se.length?d.se[0]:"";
+      var hasCon=d.se&&d.se.length>0;
+      var status=!hasCon?"no_contact":d.sr?"responded":d.ss?"awaiting":"not_sent";
+      rows.push({n:d.n,poc:"Senior",geo:d.geo,du:d.du,phase:d.phase,email:email,status:status,score:d.sc,rev:d.rev,responded:d.sr,ao:d.ao||"",dm:d.dm||"",reason:d.reason||"",target:d.target||""});
+    }
+    if(uO){
+      var email2=d.oe&&d.oe.length?d.oe[0]:"";
+      var hasCon2=d.oe&&d.oe.length>0;
+      var status2=!hasCon2?"no_contact":d.or?"responded":d.os?"awaiting":"not_sent";
+      rows.push({n:d.n,poc:"Operational",geo:d.geo,du:d.du,phase:d.phase,email:email2,status:status2,score:d.oc,rev:d.rev,responded:d.or,ao:d.ao||"",dm:d.dm||"",reason:d.reason||"",target:d.target||""});
+    }
+  });
+  return rows;
+}
+
+function getRows(){
+  var data=gf();
+  var rows=buildRows(data);
+  // Filter by active card
+  if(ACTIVE_CARD==="zero")rows=rows.filter(function(r){return !r.responded;});
+  else if(ACTIVE_CARD==="responded"||ACTIVE_CARD==="respAvg")rows=rows.filter(function(r){return r.responded;});
+  // Filter by chip
+  if(CHIP_FILTER)rows=rows.filter(function(r){return r.status===CHIP_FILTER;});
+  // Sort
+  rows.sort(function(a,b){
+    var av,bv;
+    if(SORT.col==="score"){av=a.score;bv=b.score;}
+    else if(SORT.col==="rev"){av=a.rev;bv=b.rev;}
+    else if(SORT.col==="poc"){av=a.poc;bv=b.poc;}
+    else{av=a.n.toLowerCase();bv=b.n.toLowerCase();}
+    if(av<bv)return -SORT.dir;
+    if(av>bv)return SORT.dir;
+    return 0;
+  });
+  return rows;
+}
+
+function scoreClass(s,responded){
+  if(!responded)return "score-n";
+  if(s>=4)return "score-g";
+  if(s>=3)return "score-a";
+  return "score-r";
+}
+function scoreBar(s,responded){
+  if(!responded)return "<span style=\"color:#bbb;font-size:13px\">0.0 <span style=\"font-size:10px\">(no response)</span></span>";
+  var pct=Math.round(s/5*100);
+  var col=s>=4?"#1a7a40":s>=3?"#8a4500":"#a02020";
+  return "<div class=\"score-bar-wrap\"><div style=\"flex:1;height:8px;background:#e4e8ed;border-radius:4px;overflow:hidden\"><div style=\"width:"+pct+"%;height:100%;background:"+col+";border-radius:4px\"></div></div><span class=\"score-num "+scoreClass(s,true)+"\">"+s.toFixed(1)+"</span></div>";
+}
+function statusBadge(st){
+  if(st==="responded")return "<span class=\"b bok\">Responded</span>";
+  if(st==="awaiting")return "<span class=\"b bawait\">Sent &middot; awaiting</span>";
+  if(st==="no_contact")return "<span class=\"b bnoc\">No contact</span>";
+  return "<span class=\"b bneu\">Not sent</span>";
+}
+function fmtRev(v){
+  if(!v||v===0)return "&mdash;";
+  if(v>=10000000)return "&#8377;"+(v/10000000).toFixed(1)+"Cr";
+  if(v>=100000)return "&#8377;"+(v/100000).toFixed(1)+"L";
+  return "&#8377;"+v.toLocaleString("en-IN");
+}
+
+function calcStats(rows){
+  var n=rows.length;
+  if(n===0)return{avg:0,revW:0,resp:0,zero:0,totalRev:0};
+  var sumScore=rows.reduce(function(a,r){return a+r.score;},0);
+  var avg=sumScore/n;
+  var totalRev=rows.reduce(function(a,r){return a+r.rev;},0);
+  var revWnum=rows.reduce(function(a,r){return a+r.score*r.rev;},0);
+  var revW=totalRev>0?revWnum/totalRev:0;
+  var resp=rows.filter(function(r){return r.responded;}).length;
+  var zero=rows.filter(function(r){return !r.responded;}).length;
+  var respRows=rows.filter(function(r){return r.responded;});
+  var respAvg=respRows.length>0?respRows.reduce(function(a,r){return a+r.score;},0)/respRows.length:0;
+  var respRevNum=respRows.reduce(function(a,r){return a+r.score*r.rev;},0);
+  var respRevDen=respRows.reduce(function(a,r){return a+r.rev;},0);
+  var respRevW=respRevDen>0?respRevNum/respRevDen:0;
+  return{avg:avg,revW:revW,resp:resp,zero:zero,totalRev:totalRev,n:n,respAvg:respAvg,respRevW:respRevW};
+}
+
+function render(){
+  var data=gf();
+  var allRows=buildRows(data);
+  var st=calcStats(allRows);
+  renderHeadline(st,allRows);
+  renderTable(getRows());
+}
+
+function renderHeadline(st,allRows){
+  var cards=[
+    {id:"avg",label:"Avg CSAT — all accounts",val:st.avg.toFixed(2),sub:(F.poc==="both"?st.n+" POC rows":st.n+" accounts")+" &middot; zero for non-response / no contact",hint:null,cls:scoreClass(st.avg,st.avg>0)},
+    {id:"revW",label:"Revenue-weighted CSAT",val:st.revW.toFixed(2),sub:"FY27 revenue weighted &middot; zero for non-resp",hint:null,cls:scoreClass(st.revW,st.revW>0)},
+    {id:"respAvg",label:"Revenue-weighted CSAT (responses only)",val:st.resp>0?st.respRevW.toFixed(2):"&mdash;",sub:st.resp>0?"Avg CSAT: "+st.respAvg.toFixed(2)+" &middot; "+st.resp+" response"+(st.resp!==1?"s":"")+" received":st.resp+" responses received",hint:"Click to see respondents",cls:st.resp>0?scoreClass(st.respRevW,true):"score-n"},
+    {id:"responded",label:"Response rate",val:allRows.length>0?Math.round(st.resp/allRows.length*100)+"%":"&mdash;",sub:st.resp+" of "+allRows.length+" POC rows responded",hint:"Click to see respondents",cls:""},
+  ];
+  document.getElementById("headline").innerHTML=cards.map(function(c){
+    return "<div class=\"hcard"+(ACTIVE_CARD===c.id?" active":"")+"\" data-card=\""+c.id+"\">"      +"<div class=\"hcard-l\">"+c.label+"</div>"      +"<div class=\"hcard-v "+c.cls+"\">"+c.val+"</div>"      +"<div class=\"hcard-s\">"+c.sub+"</div>"      +(c.hint?"<div class=\"hcard-h\">"+c.hint+"</div>":"")      +"</div>";
+  }).join("");
+}
+
+function renderChips(rows) {
+  var nc = rows.filter(function(r){return r.status==="no_contact";}).length;
+  var ns = rows.filter(function(r){return r.status==="not_sent";}).length;
+  var aw = rows.filter(function(r){return r.status==="awaiting";}).length;
+  var re = rows.filter(function(r){return r.status==="responded";}).length;
+  var chips = [
+    {k:"no_contact", cls:"chip-nc", label:"No contact", count:nc},
+    {k:"not_sent",   cls:"chip-ns", label:"Contact, not sent", count:ns},
+    {k:"awaiting",   cls:"chip-aw", label:"Sent, awaiting", count:aw},
+    {k:"responded",  cls:"chip-re", label:"Responded", count:re},
+  ];
+  document.getElementById("statusChips").innerHTML =
+    "<span style='font-size:12px;font-weight:600;color:#555;margin-right:4px'>Status:</span>" +
+    chips.map(function(c){
+      return "<span class='chip "+c.cls+(CHIP_FILTER===c.k?" active":"")+"' data-chip='"+c.k+"'><span class='chip-dot'></span>"+c.label+" ("+c.count+")</span>";
+    }).join("");
+}
+
+function renderTable(rows){
+  // Render chips based on ALL rows (not filtered by chip)
+  var allRows=buildRows(gf());
+  renderChips(allRows);
+  var st=calcStats(rows);
+  var title="All accounts";
+  if(ACTIVE_CARD==="zero")title="Zero-score rows (no response)";
+  else if(ACTIVE_CARD==="responded"||ACTIVE_CARD==="respAvg")title="Responded accounts";
+  var uS=F.poc!=="op",uO=F.poc!=="sr";
+  var pocLabel=uS&&uO?"Sr & Op POC":uS?"Senior POC only":"Operational POC only";
+  document.getElementById("tableTitle").textContent=title+" \u2014 "+pocLabel;
+  document.getElementById("tableSub").textContent=rows.length+" rows \u00b7 avg CSAT "+st.avg.toFixed(2)+" \u00b7 rev-weighted "+st.revW.toFixed(2);
+
+    var tbody=rows.map(function(r){
+    var drillCell=r.responded&&RESP[r.n]?function(){var idx=DRILLS.push({n:r.n,poc:r.poc})-1;return "<span class=\"score-link\" data-idx=\""+idx+"\">"+scoreBar(r.score,r.responded)+"</span>";}():scoreBar(r.score,r.responded);
+    return "<tr>"
+      +"<td style=\"font-weight:600;white-space:nowrap\" title=\""+r.n+"\">"+r.n+"</td>"
+      +"<td><span class=\"b "+(r.poc==="Senior"?"bint":"bneu")+"\">"+(r.poc)+"</span></td>"
+      +"<td><span class=\"b "+(r.geo==="International"?"bint":"bdom")+"\">"+(r.geo==="International"?"Intl":"Dom")+"</span></td>"
+      +"<td style=\"font-size:12px;color:#555;white-space:nowrap\">"+r.du+"</td>"
+      +"<td><span class=\"b bneu\" style=\"white-space:nowrap\">"+r.phase+"</span></td>"
+      +"<td style=\"font-size:12px;color:#555\">"+( r.ao||"<span style='color:#ccc'>—</span>")+"</td>"
+      +"<td style=\"font-size:12px;color:#555\">"+( r.dm||"<span style='color:#ccc'>—</span>")+"</td>"
+      +"<td>"+statusBadge(r.status)+"</td>"
+      +"<td style=\"min-width:140px\">"+drillCell+"</td>"
+      +"<td style=\"font-size:12px;color:#555;white-space:nowrap\">"+fmtRev(r.rev)+"</td>"
+      +"<td class=\"col-op\" style=\"font-size:12px;color:#185FA5;word-break:break-all\">"+(r.email||"<span style='color:#ccc'>—</span>")+"</td>"
+      +"<td class=\"col-op\" style=\"font-size:12px;color:#555\">"+( r.reason||"<span style='color:#ccc'>—</span>")+"</td>"
+      +"<td class=\"col-op\" style=\"font-size:12px;color:#555\">"+( r.target||"<span style='color:#ccc'>—</span>")+"</td>"
+      +"</tr>";
+  }).join("");
+  document.getElementById("mainBody").innerHTML=tbody;
+
+  // Footer
+  var totalRev=rows.reduce(function(a,r){return a+r.rev;},0);
+  document.getElementById("mainFoot").innerHTML="<tr>"    +"<td colspan=\"7\" style=\"text-align:right\">"+rows.length+" rows &nbsp;&middot;&nbsp; Avg CSAT: <strong class=\""+scoreClass(st.avg,st.avg>0)+"\">"+st.avg.toFixed(2)+"</strong> &nbsp;&middot;&nbsp; Rev-weighted: <strong class=\""+scoreClass(st.revW,st.revW>0)+"\">"+st.revW.toFixed(2)+"</strong></td>"    +"<td></td>"    +"<td style=\"white-space:nowrap\">Total: "+fmtRev(totalRev)+"</td>"    +"</tr>";
+}
+
+
+// ── QUESTION DRILL-DOWN MODAL ──
+function showQuestionDetail(customerName, poc) {
+  var key = customerName;
+  var resp = RESP[key];
+  if (!resp) {
+    openModal(customerName + " — " + poc + " POC", "<div style='padding:20px;font-size:13px;color:#aaa;font-style:italic'>No question-level data available for this respondent.</div>");
+    return;
+  }
+  var scoreColors = ["","#a02020","#8a4500","#8a4500","#1a7a40","#1a7a40"];
+  var barColors   = ["","#e07070","#BA7517","#BA7517","#1D9E75","#1D9E75"];
+  var qHtml = resp.questions.map(function(q){
+    var pct = Math.round(q.score/5*100);
+    var sc = scoreColors[q.score]||"#555";
+    var bc = barColors[q.score]||"#ccc";
+    return "<div class='q-bar-wrap'><div class='q-label'>"+q.q+"</div><div class='q-bar-bg'><div class='q-bar-fill' style='width:"+pct+"%;background:"+bc+"'></div></div><div class='q-score' style='color:"+sc+"'>"+q.score+"</div></div>";
+  }).join("");
+  var openHtml = resp.open && resp.open.length ? resp.open.map(function(o){
+    return "<div class='q-open'><div class='q-open-label'>"+o.q+"</div><div class='q-open-text'>"+o.text+"</div></div>";
+  }).join("") : "";
+  var avg = resp.avg;
+  var avgCol = avg>=4?"#1a7a40":avg>=3?"#8a4500":"#a02020";
+  // Get DM and AO from records
+  var acctData=R.filter(function(d){return d.n===customerName;})[0]||{};
+  var internalStr="";
+  if(acctData.ao)internalStr+="<span style='font-size:12px;color:#555'>Account Owner: <strong>"+acctData.ao+"</strong></span>";
+  if(acctData.dm)internalStr+=(internalStr?"&nbsp;&nbsp;&middot;&nbsp;&nbsp;":"")+"<span style='font-size:12px;color:#555'>Delivery Manager: <strong>"+acctData.dm+"</strong></span>";
+  var body = "<div style='padding:18px'>"
+    +"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e0e0e0'>"
+    +"<div><div style='font-size:13px;font-weight:600;color:#555'>"+resp.survey+"</div><div style='font-size:12px;color:#888;margin-top:2px'>Respondent: "+resp.respondent+"</div>"+(internalStr?"<div style='margin-top:4px'>"+internalStr+"</div>":"")+"</div>"
+    +"<div style='text-align:right'><div style='font-size:11px;color:#888'>Avg score</div><div style='font-size:28px;font-weight:700;color:"+avgCol+"'>"+avg.toFixed(1)+"</div></div>"
+    +"</div>"
+    + qHtml
+    +(openHtml?"<div style='margin-top:14px;padding-top:12px;border-top:1px solid #e0e0e0'><div style='font-size:12px;font-weight:600;color:#555;margin-bottom:8px'>Open responses</div>"+openHtml+"</div>":"")
+    +"</div>";
+  openModal(customerName + " — " + poc + " POC response", body);
+}
+
+// ── LOADING STATE ──
+function showLoading(){
+  document.getElementById("headline").innerHTML="<div style='grid-column:1/-1;padding:40px;text-align:center;color:#888;font-size:14px'><div style='font-size:28px;margin-bottom:10px'>&#8987;</div>Loading live data from Google Sheets&hellip;</div>";
+  document.getElementById("mainBody").innerHTML="<tr><td colspan='13' style='padding:30px;text-align:center;color:#888'>Fetching latest data&hellip;</td></tr>";
+}
+
+// ── CSV PARSER (handles quoted fields) ──
+function parseCSV(text){
+  var lines=text.split(/\r?\n/);
+  if(!lines.length)return[];
+  function parseLine(line){
+    var res=[],cur="",inQ=false;
+    for(var i=0;i<line.length;i++){
+      var c=line[i];
+      if(c==='"'){inQ=!inQ;}
+      else if(c===','&&!inQ){res.push(cur.trim());cur="";}
+      else{cur+=c;}
+    }
+    res.push(cur.trim());
+    return res;
+  }
+  var headers=parseLine(lines[0]);
+  var rows=[];
+  for(var i=1;i<lines.length;i++){
+    if(!lines[i].trim())continue;
+    var vals=parseLine(lines[i]);
+    var row={};
+    headers.forEach(function(h,j){row[h]=vals[j]||"";});
+    rows.push(row);
+  }
+  return rows;
+}
+
+// ── TRACKER PARSER ──
+function parseTracker(csv){
+  var allRows=parseCSV(csv);
+  // Skip header rows until we hit "Customer Name" as a value (row 4 in Excel = row 3 in CSV due to empty rows)
+  var dataRows=allRows;
+  // If first row has Customer Name as a key with non-header value, it IS the data
+  // Google Sheets publishes from row 1 of selected sheet; our sheet has 3 blank rows then headers
+  // So we may need to skip rows until first row with actual customer names
+  // Detect: find first row where "Customer Name" col has a value that looks like a name (not empty, not "Customer Name")
+  var startIdx=0;
+  for(var i=0;i<Math.min(allRows.length,6);i++){
+    var v=allRows[i]["Customer Name"]||"";
+    if(v&&v!=="Customer Name"){startIdx=i;break;}
+    // If "Customer Name" appears as a VALUE in any column, that's the header row - skip it
+    var vals=Object.values(allRows[i]);
+    if(vals.indexOf("Customer Name")>=0){startIdx=i+1;break;}
+  }
+  dataRows=allRows.slice(startIdx);
+
+  var phaseMap={
+    "Phase 1 - Handover":"Phase 1",
+    "Phase 2 - Delivery/ Build":"Phase 2",
+    "Delivery Build( from week 5 to 4 weeks before go live/ launch)":"Phase 2",
+    "Production Phase":"Phase 2",
+    "Phase 3 - Pre go-live":"Phase 3",
+    "Phase 4 - Post go-live/ maintenance":"Phase 4"
+  };
+  function cleanPhase(v){return phaseMap[v]||(v?v:"Not Set");}
+  function cleanEmails(v){
+    if(!v)return[];
+    var m=v.match(/[\w.+\-]+@[\w.\-]+\.\w+/g);
+    return m?m.map(function(e){return e.toLowerCase();} ):[];
+  }
+  function cleanStr(v){return(v&&v!=="nan"&&v!=="NaT")?v.trim():"";}
+  function toNum(v){var n=parseFloat(v);return isNaN(n)?null:n;}
+
+  var customers={},order=[],lastMeta={};
+  var fillCols=["Customer Name","Domestic/ International","Delivery Unit_Revised","Delivery Stage_AM",
+                "FY27 revenue","Delivery Manager","Account Owner","Reason for not sending","Target date for sending"];
+
+  dataRows.forEach(function(row){
+    fillCols.forEach(function(c){
+      if(row[c]&&row[c].trim())lastMeta[c]=row[c];
+      else if(lastMeta[c])row[c]=lastMeta[c];
+    });
+    var name=cleanStr(row["Customer Name"]);
+    if(!name)return;
+    if(!customers[name]){customers[name]=[];order.push(name);}
+    customers[name].push(row);
+  });
+
+  var records=[];
+  order.forEach(function(name){
+    var group=customers[name],first=group[0];
+    var rev=toNum(first["FY27 revenue"])||0;
+    var oe=[];
+    group.forEach(function(r){cleanEmails(r["Contact email (Op)"]).forEach(function(e){if(oe.indexOf(e)<0)oe.push(e);});});
+    var opSent=group.some(function(r){return r["Survey Sent (Op)"]==="Yes";})?1:0;
+    var opScores=[];
+    group.forEach(function(r){var n=toNum(r["CSAT Score (Op)"]);if(n&&n>0)opScores.push(n);});
+    var opScore=opScores.length?Math.round(opScores.reduce(function(a,b){return a+b;},0)/opScores.length*100)/100:0;
+    var se=[];
+    group.forEach(function(r){cleanEmails(r["Contact email (Sr)"]).forEach(function(e){if(se.indexOf(e)<0)se.push(e);});});
+    var srSent=group.some(function(r){return r["Survey Sent (Sr)"]==="Yes";})?1:0;
+    var srScores=[];
+    group.forEach(function(r){var n=toNum(r["CSAT Score (Sr)"]);if(n&&n>0)srScores.push(n);});
+    var srScore=srScores.length?Math.round(srScores.reduce(function(a,b){return a+b;},0)/srScores.length*100)/100:0;
+    records.push({n:name,geo:cleanStr(first["Domestic/ International"]),du:cleanStr(first["Delivery Unit_Revised"]),
+      phase:cleanPhase(cleanStr(first["Delivery Stage_AM"])),rev:rev,
+      dm:cleanStr(first["Delivery Manager"]),ao:cleanStr(first["Account Owner"]),
+      reason:cleanStr(first["Reason for not sending"]),target:cleanStr(first["Target date for sending"]),
+      oe:oe,os:opSent,or:opScores.length>0?1:0,oc:opScore,
+      se:se,ss:srSent,sr:srScores.length>0?1:0,sc:srScore});
+  });
+  return records;
+}
+
+// ── SURVEY PARSER ──
+function parseSurvey(csv,surveyKey){
+  var cfg=SURVEY_CONFIG[surveyKey];
+  var rows=parseCSV(csv);
+  if(!rows.length)return{};
+  var headers=Object.keys(rows[0]);
+  var qCols=headers.filter(function(h){
+    if(!h||h==="Timestamp"||h===cfg.nameCol)return false;
+    for(var i=0;i<cfg.openPrefix.length;i++){if(h.indexOf(cfg.openPrefix[i])===0)return false;}
+    return true;
+  });
+  var openCols=headers.filter(function(h){
+    for(var i=0;i<cfg.openPrefix.length;i++){if(h&&h.indexOf(cfg.openPrefix[i])===0)return true;}
+    return false;
+  });
+  var out={};
+  rows.forEach(function(row){
+    var rawName=row[cfg.nameCol]||"";
+    var name=USERNAME_MAP[rawName]||rawName;
+    var isRishita=RISHITA.some(function(r){return name.toLowerCase().indexOf(r.toLowerCase())>=0;});
+    if(isRishita)return;
+    var customer=NAME_MAP[name]||null;
+    if(!customer)return;
+    var qs=[],scoreSum=0,scoreCount=0;
+    qCols.forEach(function(col,i){
+      var score=parseInt(row[col]);
+      if(!isNaN(score)){qs.push({q:cfg.qShort[i]||col,score:score});scoreSum+=score;scoreCount++;}
+    });
+    if(!qs.length)return;
+    var opens=[];
+    openCols.forEach(function(col,i){
+      var text=row[col]?row[col].trim():"";
+      if(text)opens.push({q:cfg.openShort[i]||col,text:text});
+    });
+    var avg=scoreCount?Math.round(scoreSum/scoreCount*100)/100:0;
+    out[customer]={respondent:name,survey:cfg.survey,questions:qs,open:opens,avg:avg};
+  });
+  return out;
+}
+
+// ── INIT: FETCH ALL DATA ──
+function initDashboard(){
+  showLoading();
+  var fetchTracker=fetch(TRACKER_URL).then(function(r){return r.text();});
+  var surveyKeys=Object.keys(SURVEY_URLS);
+  var fetchSurveys=surveyKeys.map(function(k){
+    return fetch(SURVEY_URLS[k]).then(function(r){return r.text();}).then(function(csv){return{key:k,csv:csv};});
+  });
+  Promise.all([fetchTracker].concat(fetchSurveys)).then(function(results){
+    R=parseTracker(results[0]);
+    RESP={};
+    for(var i=1;i<results.length;i++){
+      var parsed=parseSurvey(results[i].csv,results[i].key);
+      Object.keys(parsed).forEach(function(k){RESP[k]=parsed[k];});
+    }
+    var el=document.getElementById("lastUpdated");
+    if(el){
+      var now=new Date();
+      el.textContent="Live \u00b7 refreshed "+now.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})+" \u00b7 "+now.toLocaleDateString("en-IN",{day:"numeric",month:"short"});
+    }
+    uab();render();
+    console.log("Loaded: "+R.length+" accounts, "+Object.keys(RESP).length+" responses");
+  }).catch(function(err){
+    console.error("Fetch error:",err);
+    document.getElementById("headline").innerHTML="<div style='grid-column:1/-1;padding:30px;text-align:center;color:#a02020;font-size:13px'>&#9888; Could not load data. Check internet and refresh.<br><small style='color:#888'>"+err.message+"</small></div>";
+  });
+}
+
+initDashboard();
+</script>
+</body>
+</html>
