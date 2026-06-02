@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -111,6 +111,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
     <div class="sub">Account-level CSAT &amp; revenue-weighted view &middot; <span id="lastUpdated">Loading&hellip;</span></div>
   </div>
 </div>
+<div id="diagBar" style="display:none;font-size:12px;border-radius:6px;padding:7px 12px;margin-bottom:10px;color:#333;font-weight:500"></div>
 <div class="note">
   <strong>Scoring note:</strong> Accounts with no response are scored 0. Two rows per account (Senior POC &amp; Operational POC) — same revenue, separate CSAT scores.
 </div>
@@ -436,7 +437,7 @@ function fmtRev(v){
 
 function calcStats(rows){
   var n=rows.length;
-  if(n===0)return{avg:0,revW:0,resp:0,zero:0,totalRev:0};
+  if(n===0)return{avg:0,revW:0,resp:0,zero:0,totalRev:0,n:0,respAvg:0,respRevW:0};
   var sumScore=rows.reduce(function(a,r){return a+r.score;},0);
   var avg=sumScore/n;
   var totalRev=rows.reduce(function(a,r){return a+r.rev;},0);
@@ -629,7 +630,7 @@ function parseTracker(csv){
     return m?m.map(function(e){return e.toLowerCase();}):[];
   }
   function cleanStr(v){return(v&&v!=="nan"&&v!=="NaT")?v.trim():"";}
-  function toNum(v){var n=parseFloat(v);return isNaN(n)?null:n;}
+  function toNum(v){var n=parseFloat(String(v).replace(/,/g,""));return isNaN(n)?null:n;}
 
   var customers={},order=[],lastMeta={};
   var fillCols=["Customer Name","Domestic/ International","Delivery Unit_Revised","Delivery Stage_AM",
@@ -713,21 +714,29 @@ function parseSurvey(csv,surveyKey){
 }
 
 // ── INIT: FETCH ALL DATA ──
+function showDiag(msg,color){
+  var d=document.getElementById("diagBar");
+  if(d){d.textContent=msg;d.style.background=color||"#fff3cd";d.style.display="block";}
+}
 function initDashboard(){
   showLoading();
-  var fetchTracker=fetch(TRACKER_URL).then(function(r){return r.text();});
+  var fetchTracker=fetch(TRACKER_URL).then(function(r){
+    if(!r.ok)throw new Error("Tracker HTTP "+r.status);
+    return r.text();
+  }).then(function(csv){
+    if(csv.indexOf("Customer Name")<0){
+      showDiag("⚠ Tracker sheet returned unexpected content (not CSV). Ensure the Google Sheet is published to web: File → Share → Publish to web → select sheet tab → CSV → Publish.","#fde8cc");
+      return "";
+    }
+    return csv;
+  });
   var surveyKeys=Object.keys(SURVEY_URLS);
   var fetchSurveys=surveyKeys.map(function(k){
     return fetch(SURVEY_URLS[k]).then(function(r){return r.text();}).then(function(csv){return{key:k,csv:csv};});
   });
   Promise.all([fetchTracker].concat(fetchSurveys)).then(function(results){
     var trackerCsv=results[0];
-    console.log("TRACKER CSV length:", trackerCsv.length);
-    console.log("TRACKER first 500 chars:", trackerCsv.substring(0,500));
-    console.log("TRACKER lines 0-5:", trackerCsv.split(/\r?\n/).slice(0,6));
-    R=parseTracker(trackerCsv);
-    console.log("PARSED R length:", R.length);
-    if(R.length>0) console.log("FIRST RECORD:", JSON.stringify(R[0]));
+    R=trackerCsv?parseTracker(trackerCsv):[];
     RESP={};
     for(var i=1;i<results.length;i++){
       var parsed=parseSurvey(results[i].csv,results[i].key);
@@ -736,12 +745,19 @@ function initDashboard(){
     var el=document.getElementById("lastUpdated");
     if(el){
       var now=new Date();
-      el.textContent="Live \u00b7 refreshed "+now.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})+" \u00b7 "+now.toLocaleDateString("en-IN",{day:"numeric",month:"short"});
+      el.textContent="Live · refreshed "+now.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})+" · "+now.toLocaleDateString("en-IN",{day:"numeric",month:"short"});
+    }
+    var diagEl=document.getElementById("diagBar");
+    if(R.length===0&&diagEl&&!diagEl.textContent){
+      showDiag("⚠ No accounts loaded. Ensure the tracker Google Sheet is published to web as CSV.","#fde8cc");
+    } else if(R.length>0){
+      showDiag("✓ Loaded "+R.length+" accounts · "+Object.keys(RESP).length+" survey responses","#d5f5e3");
+      setTimeout(function(){var d=document.getElementById("diagBar");if(d)d.style.display="none";},5000);
     }
     uab();render();
-    console.log("Loaded: "+R.length+" accounts, "+Object.keys(RESP).length+" responses");
   }).catch(function(err){
     console.error("Fetch error:",err);
+    showDiag("⚠ Could not load data: "+err.message+". Check your internet connection and refresh.","#fde8cc");
     document.getElementById("headline").innerHTML="<div style='grid-column:1/-1;padding:30px;text-align:center;color:#a02020;font-size:13px'>&#9888; Could not load data. Check internet and refresh.<br><small style='color:#888'>"+err.message+"</small></div>";
   });
 }
