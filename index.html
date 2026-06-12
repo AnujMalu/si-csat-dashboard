@@ -1502,34 +1502,37 @@ function buildIntResp(surveyResults) {
 // ── PARSE TRACKER — returns {dmLookup, emailLookup, unmatchedLog} ──
 function parseTracker(csvText) {
   var rows = parseCSV(csvText);
-  var dmLookup = {};      // accountName -> DM name
-  var emailLookup = {};   // email (lowercase) -> accountName
-
+  var dmLookup = {}, emailLookup = {}, accountMeta = {};
   var emailPattern = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
-
   rows.forEach(function(row) {
     var name = (row['Customer Name'] || '').trim();
     if (!name) return;
-
-    // DM name
-    var dm = (row['Delivery Manager'] || '').trim();
+    var geo   = (row['Domestic/ International'] || '').trim();
+    var du    = (row['Delivery Unit_Revised'] || row['Delivery Unit'] || '').trim();
+    var phase = (row['Delivery Stage_AM'] || row['Delivery Stage_RS'] || '').trim();
+    var dm    = (row['Delivery Manager'] || '').trim();
+    var ao    = (row['Account Owner'] || '').trim();
+    var revRaw = (row['FY27 revenue'] || '').replace(/[,\s]/g, '');
+    var rev   = parseFloat(revRaw) || 0;
+    var phaseNorm = 'Phase 4';
+    if      (phase.indexOf('Phase 1') >= 0 || phase.indexOf('Handover') >= 0)                                           phaseNorm = 'Phase 1';
+    else if (phase.indexOf('Phase 2') >= 0 || phase.indexOf('Delivery') >= 0 || phase.indexOf('Build') >= 0)            phaseNorm = 'Phase 2';
+    else if (phase.indexOf('Phase 3') >= 0 || phase.toLowerCase().indexOf('pre go') >= 0)                               phaseNorm = 'Phase 3';
+    else if (phase.indexOf('Phase 4') >= 0 || phase.toLowerCase().indexOf('post go') >= 0 || phase.toLowerCase().indexOf('maintenance') >= 0 || phase.toLowerCase().indexOf('production') >= 0) phaseNorm = 'Phase 4';
+    var duNorm  = (!du || du === '0' || du === '#N/A') ? 'Mixed' : du;
+    var geoNorm = (geo === 'Domestic') ? 'Domestic' : 'International';
     if (dm) dmLookup[name] = dm;
-
-    // Extract emails from Op and Sr contact columns + any column with @
-    var emailCols = ['Contact email (Op)', 'Contact email (Sr)'];
-    emailCols.forEach(function(col) {
+    accountMeta[name] = {geo: geoNorm, du: duNorm, phase: phaseNorm, rev: rev, dm: dm, ao: ao};
+    ['Contact email (Op)', 'Contact email (Sr)'].forEach(function(col) {
       var val = row[col] || '';
       var matches = val.match(emailPattern) || [];
       matches.forEach(function(e) {
         var em = e.toLowerCase().trim();
-        if (em && em.indexOf('sportzinteractive') < 0) {
-          emailLookup[em] = name;
-        }
+        if (em && em.indexOf('sportzinteractive') < 0) emailLookup[em] = name;
       });
     });
   });
-
-  return {dmLookup: dmLookup, emailLookup: emailLookup};
+  return {dmLookup: dmLookup, emailLookup: emailLookup, accountMeta: accountMeta};
 }
 
 // Global email lookup — populated from tracker, used by ext survey parser
@@ -1623,19 +1626,43 @@ function buildResp(extResults) {
 }
 
 // ── UPDATE R[] WITH LIVE DATA ──
-function updateRWithLiveData(intResp, trackerLookup) {
+function updateRWithLiveData(intResp, trackerParsed) {
+  var meta = trackerParsed.accountMeta || {};
+  // Reset all external scores — no stale embedded data
   R.forEach(function(acct) {
-    var n = acct.n;
-    // Update DM name from tracker
-    if (trackerLookup[n]) acct.dm = trackerLookup[n];
-    // Update internal scores
-    var ir = intResp[n];
-    if (ir) {
-      acct.oi = ir.dm ? ir.dm.avg : 0;
-      acct.oi_real = !!ir.dm;
-      acct.si = ir.csm ? ir.csm.avg : 0;
-      acct.si_real = !!ir.csm;
+    acct.or = 0; acct.sr = 0; acct.oc = 0; acct.sc = 0;
+    acct.oe = []; acct.se = []; acct.os = 0; acct.ss = 0;
+  });
+  var rByName = {};
+  R.forEach(function(acct) { rByName[acct.n] = acct; });
+  // Update every field from tracker + internal scores
+  R.forEach(function(acct) {
+    var n = acct.n, m = meta[n];
+    if (m) {
+      if (m.geo)   acct.geo   = m.geo;
+      if (m.du)    acct.du    = m.du;
+      if (m.phase) acct.phase = m.phase;
+      if (m.rev)   acct.rev   = m.rev;
+      if (m.dm)    acct.dm    = m.dm;
+      if (m.ao)    acct.ao    = m.ao;
     }
+    var ir = intResp[n];
+    acct.oi      = ir && ir.dm  ? ir.dm.avg  : 0;
+    acct.oi_real = !!(ir && ir.dm);
+    acct.si      = ir && ir.csm ? ir.csm.avg : 0;
+    acct.si_real = !!(ir && ir.csm);
+  });
+  // Add new accounts from tracker not yet in R[]
+  Object.keys(meta).forEach(function(name) {
+    if (rByName[name]) return;
+    var m = meta[name], ir = intResp[name];
+    R.push({
+      n: name, geo: m.geo, du: m.du, phase: m.phase, rev: m.rev,
+      dm: m.dm, ao: m.ao, reason: '', target: '',
+      oe: [], os: 0, or: 0, oc: 0.0, se: [], ss: 0, sr: 0, sc: 0.0,
+      oi: ir && ir.dm  ? ir.dm.avg  : 0, oi_real: !!(ir && ir.dm),
+      si: ir && ir.csm ? ir.csm.avg : 0, si_real: !!(ir && ir.csm)
+    });
   });
 }
 
@@ -1725,11 +1752,10 @@ async function initLiveData() {
   try {
     // 1. Fetch tracker — must complete before ext surveys (email lookup needed)
     updateLoadProgress(5, 'Fetching account tracker…');
-    var trackerDM = {};
+    var trackerParsed = {dmLookup:{}, emailLookup:{}, accountMeta:{}};
     try {
       var trackerText = await fetchCSV(SHEET_URLS.tracker);
-      var trackerParsed = parseTracker(trackerText);
-      trackerDM = trackerParsed.dmLookup;
+      trackerParsed = parseTracker(trackerText);
       // Populate global EMAIL_LOOKUP before ext survey parsing
       Object.keys(trackerParsed.emailLookup).forEach(function(k){ EMAIL_LOOKUP[k] = trackerParsed.emailLookup[k]; });
     } catch(e) { failed.push('tracker'); }
@@ -1790,9 +1816,9 @@ async function initLiveData() {
     if (anyIntFetched) {
       var liveIntResp = buildIntResp(surveyResults);
       Object.keys(liveIntResp).forEach(function(k){ INT_RESP[k] = liveIntResp[k]; });
-      updateRWithLiveData(INT_RESP, trackerDM);
-    } else if (Object.keys(trackerDM).length) {
-      updateRWithLiveData(INT_RESP, trackerDM);
+      updateRWithLiveData(INT_RESP, trackerParsed);
+    } else if (Object.keys(trackerParsed.accountMeta||{}).length) {
+      updateRWithLiveData(INT_RESP, trackerParsed);
     }
 
     if (anyExtFetched) {
