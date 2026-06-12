@@ -1266,8 +1266,486 @@ document.addEventListener("click",function(e){
 document.addEventListener("keydown",function(e){if(e.key==="Escape")closeModal();});
 
 // ── INIT ──
+// ── LIVE FETCH CONFIGURATION ──
+var SHEET_URLS = {
+  tracker: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Thzzz8KPu1bjQ-eg5ZYub7VfmnfqDOb18jtWOikYxCkMQdSd8mbeyLfAXziYqns4XJkaY9jPZZBi/pub?gid=1039697564&single=true&output=csv",
+  int: {
+    p1_csm: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRlRdN0wbrztIdyC8IoSnGbtkvdYcbAgHE8WZb4zs053Tx9q7jZ96vDd-MKpHtwMS3QssdzaJUhoZsu/pub?gid=1642155214&single=true&output=csv",
+    p1_dm:  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTQgXFRg1H09V8l3e5vhrO4yezfWId91VwSjQxrZWzWGiFl-VKQdyz4raMMyKK6TP19Q5eRfcCyOSZ4/pub?gid=871068330&single=true&output=csv",
+    p2_csm: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKyXM7nbINpmo9yRAMixguqF4SJUupLFonAoYGTWTCRzC_9b9yXEsOwpouHL6ScU-lDu3OYsrNA_Ba/pub?gid=1071892025&single=true&output=csv",
+    p2_dm:  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQxVrXMREbOXF0PSBa89YiEILqCPGkn5eQrE40pFcPEC4zZsroxhPKbo17NeFylWlf0dc0pHawtVU4X/pub?gid=970419270&single=true&output=csv",
+    p3_csm: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTCnwGL77cwvydr8EOjHCAEAvTR6rqfkWtc7-IqrYSxpbln9wMRPYTLwcpngT5YU9A8vKK0TSi1JJH6/pub?gid=707522208&single=true&output=csv",
+    p3_dm:  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_K1m1FUh8PA0pQCLSYDEg9uRQp6yMJT938TBK1vf40LyfhgrPgtniPEMi8-BivAvscuKa6-Rie1G9/pub?gid=1468747564&single=true&output=csv",
+    p4_csm: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQp84QZnFCN4aJKaIWHH6swG_SAEbeLXbQErc531G6JsKiGnTqk49V-hjFPl4tAVD_2WMjnGdxIUBye/pub?gid=1009247634&single=true&output=csv",
+    p4_dm:  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSIZs2SmJFJ8VeDxMialgNs7YCcKLT7mCWjbYoPccR4IDRDQQAxv9DAOTr-XIpa3x83MJ0ar1KLryBW/pub?gid=1189424164&single=true&output=csv"
+  },
+  ext: {
+    p1_sr: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRuwr2gS-tYI9dkgjQIQopTSBCBHYstVHDrnjhRHMH2j7mexgOKFfOu_QpK-lEuIntj_HhNrGOoxuUi/pub?gid=1182009136&single=true&output=csv",
+    p1_op: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTWiLTSyUipkFY9cfhxvXpZLAESZ-DlKoeD98DQrmdw_jRqv0lZhIsbDj9A83Fp_3Hsmdss59duwpb4/pub?gid=1600368746&single=true&output=csv",
+    p2_sr: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ6GyG0BBPeiLFD9GswhbY5tklaFCZTdzXx7fVJ7qwIj57M7B0GJWf6mRBPlO0Fllnlaho9-gfdlYR8/pub?gid=1932722899&single=true&output=csv",
+    p2_op: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQb1gsyHc_Iu8mw3UbRztLMEzMQ3yHxyGfQuws7M-zcs0agcm1aHgqD7fV8aG0YaHbrUh0-tqXPFU9S/pub?gid=441581708&single=true&output=csv",
+    p3_sr: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkLqqjzcHkP1aV6tAYYbz5MbUQGEpflnZARIj7sb18vyTHx-fnk8c9VC-klSxRmds1hizIo1dp8070/pub?gid=3719665&single=true&output=csv",
+    p3_op: "https://docs.google.com/spreadsheets/d/e/2PACX-1vROl4s1TviID4A8PwhfqI3FFufv8QqDDrLbDO5tXBUqBt5jHz6KGX7utq7HgzKIDgKUcIvfNKVbA4gt/pub?gid=1058888244&single=true&output=csv",
+    p4_sr: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQSwscf40H6-xWGMwJfLl5XTSRj311pXrShJtbygtIDonJarghHs7qWHGAUPdBBpZ_ubkdakeQlpNky/pub?gid=631661363&single=true&output=csv",
+    p4_op: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRUu9ce6uYjbvmEexXN8YyhFmL4goQvIlCcoZ8US8e0MGOiJiEhaPUBi-PB8YwkK-KTstqvPp-9MK0P/pub?gid=1654000864&single=true&output=csv"
+  }
+};
+
+var DATA_STATUS = {loaded: false, lastFetch: null, source: 'embedded'};
+
+// ── CSV PARSER ──
+function parseCSV(text) {
+  var lines = text.trim().split('\n');
+  if (!lines.length) return [];
+  var headers = parseCSVLine(lines[0]);
+  var rows = [];
+  for (var i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    var vals = parseCSVLine(lines[i]);
+    var obj = {};
+    headers.forEach(function(h, idx) { obj[h] = (vals[idx] || '').trim(); });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function parseCSVLine(line) {
+  var result = [], cur = '', inQ = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { result.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur);
+  return result;
+}
+
+// ── DIMENSION CLASSIFIER ──
+var DIM_MAP_LIVE = {
+  "how well did you run the kick-off": "Transition & Onboarding Quality",
+  "how clearly is the agreed scope documented": "Transition & Onboarding Quality",
+  "are the right people on this engagement": "Transition & Onboarding Quality",
+  "have you established meeting cadence": "Transition & Onboarding Quality",
+  "how well is the working relationship forming": "Relationship Quality & Collaboration",
+  "have you identified, logged, and communicated the key risks": "Process Discipline & Communication",
+  "how confident are you that this engagement will deliver to agreed scope and timeline": "Value for Money & ROI Perception",
+  "based on how this engagement has started": "Referenceability",
+  "has our team demonstrated they understand the business objectives": "Transition & Onboarding Quality",
+  "is our team contributing ideas and helping shape the approach": "Vendor vs. Partner Behaviour",
+  "is our team giving the client clear, direct answers": "Transparency & No-Surprises Culture",
+  "how present and engaged are you personally": "Relationship Quality & Collaboration",
+  "do you have a clear view of the risks that could prevent": "Process Discipline & Communication",
+  "how confident are you that this engagement will deliver the business outcome": "Value for Money & ROI Perception",
+  "based on your read of the relationship so far": "Referenceability",
+  "how confident are you in the quality of what your team is producing": "Technical Quality of Delivery",
+  "how confident are you that the full originally agreed scope will be delivered within": "Value for Money & ROI Perception",
+  "are you giving the client a clear and honest picture of delivery progress": "Transparency & No-Surprises Culture",
+  "is your team following agreed ways of working": "Process Discipline & Communication",
+  "are risks being identified early, owned clearly": "Process Discipline & Communication",
+  "is the relationship with the client's delivery team holding up": "Relationship Quality & Collaboration",
+  "how confident are you that si will deliver to the agreed scope and timeline from": "Value for Money & ROI Perception",
+  "based on how delivery is being managed": "Referenceability",
+  "now that delivery is underway, is our team still contributing": "Vendor vs. Partner Behaviour",
+  "how confident are you that the delivery picture you are receiving": "Transparency & No-Surprises Culture",
+  "is our team escalating risks and issues to client leadership": "Transparency & No-Surprises Culture",
+  "is this engagement tracking to the margin": "Value for Money & ROI Perception",
+  "are you and other senior si stakeholders sufficiently present": "Relationship Quality & Collaboration",
+  "how confident are you that si will deliver an outcome that meets": "Value for Money & ROI Perception",
+  "based on the trajectory of this engagement": "Referenceability",
+  "how confident are you that the agreed go-live date is realistic": "Technical Quality of Delivery",
+  "how confident are you that the full originally agreed scope will be delivered at go-live": "Technical Quality of Delivery",
+  "how would you honestly rate the quality of what your team has built": "Technical Quality of Delivery",
+  "are you being fully honest with the client about the severity": "Transparency & No-Surprises Culture",
+  "how quickly is your team resolving defects": "Technical Quality of Delivery",
+  "how well prepared is your team for a structured go-live": "Technical Quality of Delivery",
+  "is your team focused on the client's success after launch": "Vendor vs. Partner Behaviour",
+  "heading into go-live, how likely do you think the client's delivery team would be": "Referenceability",
+  "is our team behaving like a partner invested in the client's success": "Vendor vs. Partner Behaviour",
+  "is the go-live readiness picture being communicated": "Transparency & No-Surprises Culture",
+  "is what is about to be delivered likely to justify": "Value for Money & ROI Perception",
+  "if go-live needs to move or the outcome is at risk": "Transparency & No-Surprises Culture",
+  "are you and other senior si stakeholders giving the client the confidence": "Relationship Quality & Collaboration",
+  "how confident are you that what si is delivering will meet the business objectives": "Value for Money & ROI Perception",
+  "heading into go-live, how likely do you think the client's leadership would be": "Referenceability",
+  "how stable and reliable is the product your team delivered": "Technical Quality of Delivery",
+  "is your team communicating honestly and clearly with the client": "Transparency & No-Surprises Culture",
+  "how effectively is your team responding to bugs": "Technical Quality of Delivery",
+  "is your team flagging risks, improvements, and technical debt proactively": "Vendor vs. Partner Behaviour",
+  "is your team consistently following agreed support processes": "Process Discipline & Communication",
+  "is the post-launch relationship with the client healthy": "Relationship Quality & Collaboration",
+  "has what your team built actually delivered the business result": "Value for Money & ROI Perception",
+  "looking at the full engagement, how likely do you think the client's delivery team": "Referenceability",
+  "has what si built delivered the business result": "Value for Money & ROI Perception",
+  "would you bring the si team into the room": "Vendor vs. Partner Behaviour",
+  "if something goes wrong post-launch, how confident are you that si will be the ones": "DUAL:Transparency & No-Surprises Culture:Process Discipline & Communication",
+  "has si contributed beyond what was contracted": "Vendor vs. Partner Behaviour",
+  "is si still actively engaging with the client's business objectives": "Relationship Quality & Collaboration",
+  "based on the full experience, how likely are you to extend": "Referenceability",
+  "looking at the full engagement and what was delivered, how likely do you think the client's leadership": "Referenceability"
+};
+
+function classifyQ(q) {
+  var ql = q.toLowerCase().trim();
+  for (var key in DIM_MAP_LIVE) {
+    if (ql.indexOf(key) === 0) return DIM_MAP_LIVE[key];
+  }
+  for (var key in DIM_MAP_LIVE) {
+    if (ql.indexOf(key) >= 0) return DIM_MAP_LIVE[key];
+  }
+  return "Value for Money & ROI Perception";
+}
+
+// ── FETCH WITH TIMEOUT ──
+function fetchCSV(url, timeoutMs) {
+  timeoutMs = timeoutMs || 8000;
+  return Promise.race([
+    fetch(url).then(function(r) { return r.text(); }),
+    new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, timeoutMs); })
+  ]);
+}
+
+// ── PARSE INTERNAL SURVEY RESPONSES ──
+function parseIntSurvey(csvText, role, phase, label) {
+  var rows = parseCSV(csvText);
+  var result = {};
+  var skipCols = {'Timestamp':1,'Email Address':1,'Customer Name':1};
+  rows.forEach(function(row) {
+    var acct = (row['Customer Name'] || '').trim();
+    if (!acct) return;
+    var sqs = [], oqs = [];
+    Object.keys(row).forEach(function(col) {
+      if (skipCols[col]) return;
+      var val = row[col];
+      var num = parseFloat(val);
+      if (!isNaN(num) && num >= 1 && num <= 5) {
+        var dimResult = classifyQ(col);
+        if (dimResult.indexOf('DUAL:') === 0) {
+          var parts = dimResult.split(':');
+          sqs.push({q: col, score: Math.round(num), dim: parts[1], is_dual: true, dual_dim: parts[2]});
+        } else {
+          sqs.push({q: col, score: Math.round(num), dim: dimResult, is_dual: false});
+        }
+      } else if (val && val.trim() && val.trim() !== 'nan') {
+        oqs.push({q: col, text: val.trim()});
+      }
+    });
+    if (!sqs.length) return;
+    var avg = Math.round((sqs.reduce(function(a,q){return a+q.score;},0) / sqs.length) * 100) / 100;
+    result[acct] = {survey: label, phase: phase, avg: avg, questions: sqs, open: oqs};
+  });
+  return result;
+}
+
+// ── BUILD INT_RESP FROM LIVE DATA ──
+function buildIntResp(surveyResults) {
+  var ALL = {};
+  var surveyMeta = [
+    {key:'p1_csm', role:'csm', phase:'Phase 1', label:'Phase 1 – CSM'},
+    {key:'p1_dm',  role:'dm',  phase:'Phase 1', label:'Phase 1 – DM'},
+    {key:'p2_csm', role:'csm', phase:'Phase 2', label:'Phase 2 – CSM'},
+    {key:'p2_dm',  role:'dm',  phase:'Phase 2', label:'Phase 2 – DM'},
+    {key:'p3_csm', role:'csm', phase:'Phase 3', label:'Phase 3 – CSM'},
+    {key:'p3_dm',  role:'dm',  phase:'Phase 3', label:'Phase 3 – DM'},
+    {key:'p4_csm', role:'csm', phase:'Phase 4', label:'Phase 4 – CSM'},
+    {key:'p4_dm',  role:'dm',  phase:'Phase 4', label:'Phase 4 – DM'}
+  ];
+
+  surveyMeta.forEach(function(meta) {
+    var parsed = surveyResults[meta.key];
+    if (!parsed) return;
+    Object.keys(parsed).forEach(function(acct) {
+      if (!ALL[acct]) ALL[acct] = {dm: {}, csm: {}};
+      ALL[acct][meta.role][meta.phase] = parsed[acct];
+    });
+  });
+
+  var INT_RESP_LIVE = {};
+  Object.keys(ALL).forEach(function(acct) {
+    var entry = {};
+    ['dm','csm'].forEach(function(role) {
+      var pm = ALL[acct][role];
+      if (!Object.keys(pm).length) return;
+      var allQs = [], phases = [];
+      Object.keys(pm).sort().forEach(function(ph) {
+        allQs = allQs.concat(pm[ph].questions);
+        phases.push(pm[ph]);
+      });
+      var avg = Math.round((allQs.reduce(function(a,q){return a+q.score;},0) / allQs.length) * 100) / 100;
+      var ds = {};
+      allQs.forEach(function(q) {
+        if (!ds[q.dim]) ds[q.dim] = [];
+        ds[q.dim].push(q.score);
+        if (q.is_dual && q.dual_dim) {
+          if (!ds[q.dual_dim]) ds[q.dual_dim] = [];
+          ds[q.dual_dim].push(q.score);
+        }
+      });
+      var dimScores = {};
+      Object.keys(ds).forEach(function(d) {
+        dimScores[d] = Math.round((ds[d].reduce(function(a,v){return a+v;},0)/ds[d].length)*100)/100;
+      });
+      entry[role] = {
+        avg: avg,
+        phases: phases,
+        all_questions: allQs,
+        dim_scores: dimScores,
+        survey: phases.map(function(p){return p.survey;}).join(', ')
+      };
+    });
+    if (Object.keys(entry).length) INT_RESP_LIVE[acct] = entry;
+  });
+  return INT_RESP_LIVE;
+}
+
+// ── PARSE EXTERNAL RESPONSES ──
+function parseExtSurvey(csvText, pocType, phase) {
+  var rows = parseCSV(csvText);
+  var result = {};
+  rows.forEach(function(row) {
+    // Skip sportzinteractive.net test responses
+    var email = (row['Email Address'] || row['Username'] || '').toLowerCase();
+    if (email.indexOf('sportzinteractive.net') >= 0) return;
+    var acct = (row['Customer Name'] || row['Account Name'] || '').trim();
+    if (!acct) return;
+    var sqs = [], oqs = [];
+    var skipCols = {'Timestamp':1,'Email Address':1,'Username':1,'Customer Name':1,'Account Name':1};
+    Object.keys(row).forEach(function(col) {
+      if (skipCols[col]) return;
+      var val = row[col];
+      var num = parseFloat(val);
+      if (!isNaN(num) && num >= 1 && num <= 5) {
+        sqs.push({q: col, score: Math.round(num)});
+      } else if (val && val.trim() && val.trim() !== 'nan') {
+        oqs.push({q: col, text: val.trim()});
+      }
+    });
+    if (!sqs.length) return;
+    var avg = Math.round((sqs.reduce(function(a,q){return a+q.score;},0)/sqs.length)*100)/100;
+    // Last row wins per account per poc per phase (handles duplicates)
+    result[acct] = {avg: avg, questions: sqs, open: oqs, survey: phase + ' – ' + pocType, respondent: pocType, poc: pocType};
+  });
+  return result;
+}
+
+// ── BUILD RESP FROM LIVE EXTERNAL DATA ──
+function buildResp(extResults) {
+  var RESP_LIVE = {};
+  var extMeta = [
+    {key:'p1_sr', poc:'Senior POC',      phase:'Phase 1'},
+    {key:'p1_op', poc:'Operational POC', phase:'Phase 1'},
+    {key:'p2_sr', poc:'Senior POC',      phase:'Phase 2'},
+    {key:'p2_op', poc:'Operational POC', phase:'Phase 2'},
+    {key:'p3_sr', poc:'Senior POC',      phase:'Phase 3'},
+    {key:'p3_op', poc:'Operational POC', phase:'Phase 3'},
+    {key:'p4_sr', poc:'Senior POC',      phase:'Phase 4'},
+    {key:'p4_op', poc:'Operational POC', phase:'Phase 4'}
+  ];
+  extMeta.forEach(function(meta) {
+    var parsed = extResults[meta.key];
+    if (!parsed) return;
+    Object.keys(parsed).forEach(function(acct) {
+      if (!RESP_LIVE[acct]) RESP_LIVE[acct] = {};
+      RESP_LIVE[acct][meta.poc] = parsed[acct];
+    });
+  });
+  // Flatten: for each account store combined avg across all poc types
+  var RESP_FLAT = {};
+  Object.keys(RESP_LIVE).forEach(function(acct) {
+    var pocs = RESP_LIVE[acct];
+    var allQs = [], opens = [], surveys = [];
+    Object.keys(pocs).forEach(function(poc) {
+      allQs = allQs.concat(pocs[poc].questions);
+      opens = opens.concat(pocs[poc].open || []);
+      surveys.push(pocs[poc].survey);
+    });
+    var avg = Math.round((allQs.reduce(function(a,q){return a+q.score;},0)/allQs.length)*100)/100;
+    RESP_FLAT[acct] = {avg: avg, questions: allQs, open: opens, survey: surveys.join(', '), respondent: Object.keys(pocs).join(' + ')};
+  });
+  return RESP_FLAT;
+}
+
+// ── PARSE TRACKER ──
+function parseTracker(csvText) {
+  var rows = parseCSV(csvText);
+  var lookup = {};
+  rows.forEach(function(row) {
+    var name = (row['Customer Name'] || '').trim();
+    var dm = (row['Delivery Manager'] || '').trim();
+    if (name && dm) lookup[name] = dm;
+  });
+  return lookup;
+}
+
+// ── UPDATE R[] WITH LIVE DATA ──
+function updateRWithLiveData(intResp, trackerLookup) {
+  R.forEach(function(acct) {
+    var n = acct.n;
+    // Update DM name from tracker
+    if (trackerLookup[n]) acct.dm = trackerLookup[n];
+    // Update internal scores
+    var ir = intResp[n];
+    if (ir) {
+      acct.oi = ir.dm ? ir.dm.avg : 0;
+      acct.oi_real = !!ir.dm;
+      acct.si = ir.csm ? ir.csm.avg : 0;
+      acct.si_real = !!ir.csm;
+    }
+  });
+}
+
+// ── LOADING OVERLAY ──
+function showLoadingOverlay() {
+  var el = document.createElement('div');
+  el.id = 'loadingOverlay';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(31,56,100,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px';
+  el.innerHTML = '<div style="color:#fff;font-size:18px;font-weight:700;font-family:Arial,sans-serif">Loading live data…</div>'
+    + '<div style="width:280px;height:6px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden">'
+    + '<div id="loadBar" style="height:100%;background:#fff;border-radius:3px;width:0%;transition:width .3s"></div></div>'
+    + '<div id="loadMsg" style="color:rgba(255,255,255,.7);font-size:13px;font-family:Arial,sans-serif">Connecting to Google Sheets…</div>';
+  document.body.appendChild(el);
+}
+
+function updateLoadProgress(pct, msg) {
+  var bar = document.getElementById('loadBar');
+  var msgEl = document.getElementById('loadMsg');
+  if (bar) bar.style.width = pct + '%';
+  if (msgEl) msgEl.textContent = msg;
+}
+
+function hideLoadingOverlay() {
+  var el = document.getElementById('loadingOverlay');
+  if (el) el.remove();
+}
+
+function updateDataStatusBadge() {
+  var hdr = document.querySelector('.header');
+  if (!hdr) return;
+  var existing = document.getElementById('dataStatusBadge');
+  if (existing) existing.remove();
+  var badge = document.createElement('div');
+  badge.id = 'dataStatusBadge';
+  var isLive = DATA_STATUS.source === 'live';
+  badge.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid '+(isLive?'rgba(100,255,150,.4)':'rgba(255,200,100,.4)')+';color:'+(isLive?'#9effc0':'#ffd580')+';display:flex;align-items:center;gap:5px;cursor:pointer';
+  badge.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:'+(isLive?'#4dff88':'#ffaa00')+';flex-shrink:0"></span>'
+    + (isLive ? 'Live data · '+DATA_STATUS.lastFetch : 'Cached data · live fetch failed');
+  badge.title = isLive ? 'Data loaded live from Google Sheets' : 'Could not reach Google Sheets — showing last known data';
+  hdr.appendChild(badge);
+}
+
+// ── MAIN INIT: FETCH ALL SHEETS ──
+async function initLiveData() {
+  showLoadingOverlay();
+  var failed = [];
+
+  try {
+    // 1. Fetch tracker
+    updateLoadProgress(5, 'Fetching account tracker…');
+    var trackerLookup = {};
+    try {
+      var trackerText = await fetchCSV(SHEET_URLS.tracker);
+      trackerLookup = parseTracker(trackerText);
+    } catch(e) { failed.push('tracker'); }
+
+    // 2. Fetch all 8 internal surveys in parallel
+    updateLoadProgress(15, 'Fetching internal DM & CSM surveys…');
+    var intKeys = Object.keys(SHEET_URLS.int);
+    var intTexts = await Promise.allSettled(intKeys.map(function(k){ return fetchCSV(SHEET_URLS.int[k]); }));
+    var surveyResults = {};
+    var intMeta = [
+      {key:'p1_csm',role:'csm',phase:'Phase 1',label:'Phase 1 – CSM'},
+      {key:'p1_dm', role:'dm', phase:'Phase 1',label:'Phase 1 – DM'},
+      {key:'p2_csm',role:'csm',phase:'Phase 2',label:'Phase 2 – CSM'},
+      {key:'p2_dm', role:'dm', phase:'Phase 2',label:'Phase 2 – DM'},
+      {key:'p3_csm',role:'csm',phase:'Phase 3',label:'Phase 3 – CSM'},
+      {key:'p3_dm', role:'dm', phase:'Phase 3',label:'Phase 3 – DM'},
+      {key:'p4_csm',role:'csm',phase:'Phase 4',label:'Phase 4 – CSM'},
+      {key:'p4_dm', role:'dm', phase:'Phase 4',label:'Phase 4 – DM'}
+    ];
+    intTexts.forEach(function(result, i) {
+      var meta = intMeta[i];
+      if (result.status === 'fulfilled') {
+        surveyResults[meta.key] = parseIntSurvey(result.value, meta.role, meta.phase, meta.label);
+      } else {
+        failed.push('int_' + meta.key);
+      }
+    });
+
+    // 3. Fetch all 8 external surveys in parallel
+    updateLoadProgress(55, 'Fetching external customer responses…');
+    var extKeys = Object.keys(SHEET_URLS.ext);
+    var extTexts = await Promise.allSettled(extKeys.map(function(k){ return fetchCSV(SHEET_URLS.ext[k]); }));
+    var extResults = {};
+    var extMeta = [
+      {key:'p1_sr',poc:'Senior POC',     phase:'Phase 1'},
+      {key:'p1_op',poc:'Operational POC',phase:'Phase 1'},
+      {key:'p2_sr',poc:'Senior POC',     phase:'Phase 2'},
+      {key:'p2_op',poc:'Operational POC',phase:'Phase 2'},
+      {key:'p3_sr',poc:'Senior POC',     phase:'Phase 3'},
+      {key:'p3_op',poc:'Operational POC',phase:'Phase 3'},
+      {key:'p4_sr',poc:'Senior POC',     phase:'Phase 4'},
+      {key:'p4_op',poc:'Operational POC',phase:'Phase 4'}
+    ];
+    extTexts.forEach(function(result, i) {
+      var meta = extMeta[i];
+      if (result.status === 'fulfilled') {
+        extResults[meta.key] = parseExtSurvey(result.value, meta.poc, meta.phase);
+      } else {
+        failed.push('ext_' + meta.key);
+      }
+    });
+
+    // 4. Build live data structures
+    updateLoadProgress(80, 'Processing responses…');
+    var anyIntFetched = Object.keys(surveyResults).length > 0;
+    var anyExtFetched = Object.keys(extResults).length > 0;
+
+    if (anyIntFetched) {
+      var liveIntResp = buildIntResp(surveyResults);
+      // Merge into INT_RESP (live overrides embedded)
+      Object.keys(liveIntResp).forEach(function(k){ INT_RESP[k] = liveIntResp[k]; });
+      updateRWithLiveData(INT_RESP, trackerLookup);
+    } else if (Object.keys(trackerLookup).length) {
+      updateRWithLiveData(INT_RESP, trackerLookup);
+    }
+
+    if (anyExtFetched) {
+      var liveResp = buildResp(extResults);
+      // Merge into RESP (live overrides embedded)
+      Object.keys(liveResp).forEach(function(k){ RESP[k] = liveResp[k]; });
+      // Update R[] external scores
+      R.forEach(function(acct) {
+        var er = RESP[acct.n];
+        if (er) {
+          acct.sc = er.avg;
+          acct.or = 1; acct.sr = 1;
+          acct.oc = er.avg; acct.sc = er.avg;
+        }
+      });
+    }
+
+    updateLoadProgress(100, 'Done');
+    DATA_STATUS.loaded = true;
+    DATA_STATUS.source = failed.length < 8 ? 'live' : 'embedded';
+    DATA_STATUS.lastFetch = new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'});
+
+  } catch(e) {
+    DATA_STATUS.source = 'embedded';
+    DATA_STATUS.lastFetch = null;
+  }
+
+  hideLoadingOverlay();
+  updateDataStatusBadge();
+
+  // Re-render current tab with live data
+  uab();
+  renderAccountTable();
+}
+
+
+// Start with loading overlay + live fetch
 uab();
-renderAccountTable();
+initLiveData();
 </script>
 </body>
 </html>
