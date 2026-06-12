@@ -1759,6 +1759,16 @@ function updateRWithLiveData(intResp, trackerParsed) {
     acct.oi_real = !!(ir && ir.dm);
     acct.si      = ir && ir.csm ? ir.csm.avg : 0;
     acct.si_real = !!(ir && ir.csm);
+
+    // Seed RESP with tracker scores as baseline
+    // Live survey responses will override these in buildResp step
+    if (m && (m.oc || m.sc)) {
+      if (!RESP[n]) RESP[n] = {op: null, sr: null, avg: 0, questions: [], open: [], survey: 'Tracker', respondent: ''};
+      if (m.oc && !RESP[n].op) RESP[n].op = {avg: m.oc, questions: [{q: 'CSAT Score (tracker)', score: m.oc}], open: [], survey: 'Tracker (Op)', respondent: 'Op'};
+      if (m.sc && !RESP[n].sr) RESP[n].sr = {avg: m.sc, questions: [{q: 'CSAT Score (tracker)', score: m.sc}], open: [], survey: 'Tracker (Sr)', respondent: 'Sr'};
+      var allQ = [].concat(RESP[n].op ? RESP[n].op.questions : []).concat(RESP[n].sr ? RESP[n].sr.questions : []);
+      RESP[n].avg = allQ.length ? Math.round(allQ.reduce(function(a,q){return a+q.score;},0)/allQ.length*100)/100 : 0;
+    }
   });
   // Add new accounts from tracker not yet in R[]
   Object.keys(meta).forEach(function(name) {
@@ -1772,6 +1782,14 @@ function updateRWithLiveData(intResp, trackerParsed) {
       oi: ir && ir.dm  ? ir.dm.avg  : 0, oi_real: !!(ir && ir.dm),
       si: ir && ir.csm ? ir.csm.avg : 0, si_real: !!(ir && ir.csm)
     });
+    // Seed RESP with tracker scores for new accounts too
+    if (m.oc || m.sc) {
+      if (!RESP[name]) RESP[name] = {op: null, sr: null, avg: 0, questions: [], open: [], survey: 'Tracker', respondent: ''};
+      if (m.oc && !RESP[name].op) RESP[name].op = {avg: m.oc, questions: [{q: 'CSAT Score (tracker)', score: m.oc}], open: [], survey: 'Tracker (Op)', respondent: 'Op'};
+      if (m.sc && !RESP[name].sr) RESP[name].sr = {avg: m.sc, questions: [{q: 'CSAT Score (tracker)', score: m.sc}], open: [], survey: 'Tracker (Sr)', respondent: 'Sr'};
+      var allQ = [].concat(RESP[name].op ? RESP[name].op.questions : []).concat(RESP[name].sr ? RESP[name].sr.questions : []);
+      RESP[name].avg = allQ.length ? Math.round(allQ.reduce(function(a,q){return a+q.score;},0)/allQ.length*100)/100 : 0;
+    }
   });
 }
 
@@ -1932,10 +1950,21 @@ async function initLiveData() {
 
     if (anyExtFetched) {
       var liveResp = buildResp(extResults);
-      // Merge into RESP — live data overrides embedded
-      Object.keys(liveResp).forEach(function(k){ RESP[k] = liveResp[k]; });
-      // Note: external scores are read directly from RESP in renderAccountTable
-      // R[] contact/status fields come from tracker, not from here
+      // Merge live survey responses into RESP
+      // Live form data overrides tracker baseline for accounts that have form responses
+      // Accounts with only tracker scores (no form responses) keep their tracker baseline
+      Object.keys(liveResp).forEach(function(k) {
+        if (!RESP[k]) {
+          RESP[k] = liveResp[k];
+        } else {
+          // Override op/sr individually — live beats tracker
+          if (liveResp[k].op) RESP[k].op = liveResp[k].op;
+          if (liveResp[k].sr) RESP[k].sr = liveResp[k].sr;
+          // Recalculate combined avg
+          var allQ = [].concat(RESP[k].op ? RESP[k].op.questions : []).concat(RESP[k].sr ? RESP[k].sr.questions : []);
+          RESP[k].avg = allQ.length ? Math.round(allQ.reduce(function(a,q){return a+q.score;},0)/allQ.length*100)/100 : 0;
+        }
+      });
     }
 
     updateLoadProgress(100, 'Done');
