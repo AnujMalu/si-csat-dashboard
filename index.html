@@ -398,55 +398,81 @@ function uab(){
 }
 
 // ── ACCOUNT VIEW ──
-function buildAccountRows(data){
-  var rows=[];
-  data.forEach(function(d){
-    var email=d.se&&d.se.length?d.se[0]:(d.oe&&d.oe.length?d.oe[0]:"");
-    var hasCon=(d.se&&d.se.length>0)||(d.oe&&d.oe.length>0);
-    var status=!hasCon?"no_contact":d.sr||d.or?"responded":(d.ss||d.os)?"awaiting":"not_sent";
-    rows.push({n:d.n,geo:d.geo,du:d.du,phase:d.phase,email:email,status:status,extScore:d.sc||d.oc||0,extReal:!!(d.sr||d.or),dmScore:d.oi||0,dmReal:!!d.oi_real,csmScore:d.si||0,csmReal:!!d.si_real,rev:d.rev,ao:d.ao||"",dm:d.dm||"",reason:d.reason||"",target:d.target||""});
+function getAcctStatus(hasContact, sent, responded) {
+  if (!hasContact) return 'no_contact';
+  if (responded)   return 'responded';
+  if (sent)        return 'awaiting';
+  return 'not_sent';
+}
+
+function buildAccountRows(data) {
+  var rows = [];
+  data.forEach(function(d) {
+    var extResp = RESP[d.n] || {};
+    var opExtScore = extResp.op ? extResp.op.avg : 0;
+    var opExtReal  = !!(extResp.op);
+    var srExtScore = extResp.sr ? extResp.sr.avg : 0;
+    var srExtReal  = !!(extResp.sr);
+    rows.push({
+      n: d.n, geo: d.geo, du: d.du, phase: d.phase,
+      ao: d.ao||'', dm: d.dm||'', rev: d.rev,
+      opEmail: d.oe&&d.oe.length ? d.oe[0] : '',
+      opStatus: getAcctStatus(d.oe&&d.oe.length>0, d.os, d.or),
+      opExtScore: opExtScore, opExtReal: opExtReal,
+      srEmail: d.se&&d.se.length ? d.se[0] : '',
+      srStatus: getAcctStatus(d.se&&d.se.length>0, d.ss, d.sr),
+      srExtScore: srExtScore, srExtReal: srExtReal,
+      dmScore: d.oi||0, dmReal: !!d.oi_real,
+      csmScore: d.si||0, csmReal: !!d.si_real
+    });
   });
   return rows;
 }
 
-function sortRows(rows,sc,dir){
-  rows.sort(function(a,b){
-    var av,bv;
-    if(sc==="ext"){var ar=a.extReal,br=b.extReal;if(!ar&&br)return 1;if(ar&&!br)return-1;av=a.extScore;bv=b.extScore;}
-    else if(sc==="dm"){var ar=a.dmReal,br=b.dmReal;if(!ar&&br)return 1;if(ar&&!br)return-1;av=a.dmScore;bv=b.dmScore;}
-    else if(sc==="csm"){var ar=a.csmReal,br=b.csmReal;if(!ar&&br)return 1;if(ar&&!br)return-1;av=a.csmScore;bv=b.csmScore;}
-    else if(sc==="rev"){av=a.rev;bv=b.rev;}
-    else{av=a.n.toLowerCase();bv=b.n.toLowerCase();}
-    if(av<bv)return -dir;if(av>bv)return dir;return 0;
+function sortRows(rows, sc, dir) {
+  rows.sort(function(a, b) {
+    var av, bv;
+    if (sc==='ext') {
+      var aS=a.opExtReal?a.opExtScore:(a.srExtReal?a.srExtScore:0);
+      var bS=b.opExtReal?b.opExtScore:(b.srExtReal?b.srExtScore:0);
+      var aR=a.opExtReal||a.srExtReal, bR=b.opExtReal||b.srExtReal;
+      if (!aR&&bR) return 1; if (aR&&!bR) return -1;
+      av=aS; bv=bS;
+    } else if (sc==='dm')  { if(!a.dmReal&&b.dmReal) return 1; if(a.dmReal&&!b.dmReal) return -1; av=a.dmScore; bv=b.dmScore; }
+    else if (sc==='csm') { if(!a.csmReal&&b.csmReal) return 1; if(a.csmReal&&!b.csmReal) return -1; av=a.csmScore; bv=b.csmScore; }
+    else if (sc==='rev') { av=a.rev; bv=b.rev; }
+    else { av=a.n.toLowerCase(); bv=b.n.toLowerCase(); }
+    if (av<bv) return -dir; if (av>bv) return dir; return 0;
   });
 }
 
-function calcAccountStats(rows){
-  var extItems=[],dmItems=[],csmItems=[];
-  rows.forEach(function(r){
-    if(r.extReal)extItems.push({score:r.extScore,rev:r.rev});
-    if(r.dmReal)dmItems.push({score:r.dmScore,rev:r.rev});
-    if(r.csmReal)csmItems.push({score:r.csmScore,rev:r.rev});
+function calcAccountStats(rows) {
+  var extItems=[], dmItems=[], csmItems=[];
+  rows.forEach(function(r) {
+    if (r.opExtReal) extItems.push({score:r.opExtScore, rev:r.rev});
+    else if (r.srExtReal) extItems.push({score:r.srExtScore, rev:r.rev});
+    if (r.dmReal)  dmItems.push({score:r.dmScore,  rev:r.rev});
+    if (r.csmReal) csmItems.push({score:r.csmScore, rev:r.rev});
   });
-  return{
-    extRW:extItems.length?rwAvg(extItems):0,extN:extItems.length,
-    dmRW:dmItems.length?rwAvg(dmItems):0,dmN:dmItems.length,
-    csmRW:csmItems.length?rwAvg(csmItems):0,csmN:csmItems.length,
-    total:rows.length
+  return {
+    extRW: extItems.length ? rwAvg(extItems) : 0, extN: extItems.length,
+    dmRW:  dmItems.length  ? rwAvg(dmItems)  : 0, dmN:  dmItems.length,
+    csmRW: csmItems.length ? rwAvg(csmItems) : 0, csmN: csmItems.length,
+    total: rows.length
   };
 }
 
-function renderAccountHeadline(rows){
-  var st=calcAccountStats(rows);
-  function card(id,lbl,val,sub,cls){
+function renderAccountHeadline(rows) {
+  var st = calcAccountStats(rows);
+  function card(id,lbl,val,sub,cls) {
     return "<div class='hcard"+(ACTIVE_CARD===id?" active":"")+"' data-card='"+id+"'><div class='hcard-l'>"+lbl+"</div><div class='hcard-v "+cls+"'>"+val+"</div><div class='hcard-s'>"+sub+"</div></div>";
   }
-  var sc=function(v){return v>=4?"score-g":v>=3?"score-a":v?"score-r":"score-n";};
-  document.getElementById("headline").innerHTML=
-    card("extAvg","Ext. CSAT (rev-wtd)",st.extN?st.extRW.toFixed(2):"—",st.extN+" responses",sc(st.extRW))+
-    card("dmAvg","DM Score (rev-wtd)",st.dmN?st.dmRW.toFixed(2):"—",st.dmN+" DM responses",sc(st.dmRW))+
-    card("csmAvg","CSM Score (rev-wtd)",st.csmN?st.csmRW.toFixed(2):"—",st.csmN+" CSM responses",sc(st.csmRW))+
-    card("total","Accounts shown",rows.length,st.dmN+" w/ DM · "+st.csmN+" w/ CSM","");
+  var sc = function(v){return v>=4?"score-g":v>=3?"score-a":v?"score-r":"score-n";};
+  document.getElementById("headline").innerHTML =
+    card("extAvg","Ext. CSAT (rev-wtd)", st.extN?st.extRW.toFixed(2):"—", st.extN+" responses",    sc(st.extRW)) +
+    card("dmAvg", "DM Score (rev-wtd)",  st.dmN ?st.dmRW.toFixed(2) :"—", st.dmN+" DM responses",  sc(st.dmRW))  +
+    card("csmAvg","CSM Score (rev-wtd)", st.csmN?st.csmRW.toFixed(2):"—", st.csmN+" CSM responses",sc(st.csmRW)) +
+    card("total", "Accounts shown",      rows.length, st.dmN+" w/ DM · "+st.csmN+" w/ CSM","");
 }
 
 function renderCompBannerAcct(rows){
@@ -471,52 +497,83 @@ function renderCompBannerAcct(rows){
     +"</div>";
 }
 
-function renderAccountChips(rows){
-  var nc=rows.filter(function(r){return r.status==="no_contact";}).length;
-  var ns=rows.filter(function(r){return r.status==="not_sent";}).length;
-  var aw=rows.filter(function(r){return r.status==="awaiting";}).length;
-  var re=rows.filter(function(r){return r.status==="responded";}).length;
+function renderAccountChips(rows) {
+  function acctStatus(r) {
+    if (r.opStatus==='responded'||r.srStatus==='responded') return 'responded';
+    if (r.opStatus==='awaiting' ||r.srStatus==='awaiting')  return 'awaiting';
+    if (r.opStatus==='not_sent' ||r.srStatus==='not_sent')  return 'not_sent';
+    return 'no_contact';
+  }
+  var nc=rows.filter(function(r){return acctStatus(r)==='no_contact';}).length;
+  var ns=rows.filter(function(r){return acctStatus(r)==='not_sent';}).length;
+  var aw=rows.filter(function(r){return acctStatus(r)==='awaiting';}).length;
+  var re=rows.filter(function(r){return acctStatus(r)==='responded';}).length;
   var chips=[{k:"no_contact",cls:"chip-nc",label:"No contact",count:nc},{k:"not_sent",cls:"chip-ns",label:"Contact, not sent",count:ns},{k:"awaiting",cls:"chip-aw",label:"Awaiting",count:aw},{k:"responded",cls:"chip-re",label:"Responded",count:re}];
   document.getElementById("statusChips").innerHTML="<span style='font-size:12px;font-weight:600;color:#555;margin-right:4px'>Ext. Status:</span>"+chips.map(function(c){return"<span class='chip "+c.cls+(CHIP_FILTER===c.k?" active":"")+"' data-chip='"+c.k+"'><span class='chip-dot'></span>"+c.label+" ("+c.count+")</span>";}).join("");
 }
 
-function renderAccountTable(){
-  var data=gf();
-  var rows=buildAccountRows(data);
-  if(CHIP_FILTER)rows=rows.filter(function(r){return r.status===CHIP_FILTER;});
-  if(ACTIVE_CARD==="extAvg"||ACTIVE_CARD==="dmAvg"||ACTIVE_CARD==="csmAvg"){}
-  sortRows(rows,SORT.col,SORT.dir);
+function renderAccountTable() {
+  var data = gf();
+  var rows = buildAccountRows(data);
+  if (CHIP_FILTER) {
+    rows = rows.filter(function(r) {
+      var s=(r.opStatus==='responded'||r.srStatus==='responded')?'responded':(r.opStatus==='awaiting'||r.srStatus==='awaiting')?'awaiting':(r.opStatus==='not_sent'||r.srStatus==='not_sent')?'not_sent':'no_contact';
+      return s===CHIP_FILTER;
+    });
+  }
+  sortRows(rows, SORT.col, SORT.dir);
   renderAccountChips(buildAccountRows(data));
   renderAccountHeadline(rows);
   renderCompBannerAcct(rows);
-  document.getElementById("tableTitle").textContent="All accounts ("+rows.length+")";
-  document.getElementById("tableSub").textContent="Rev-weighted: Ext "+calcAccountStats(rows).extRW.toFixed(2)+" · DM "+calcAccountStats(rows).dmRW.toFixed(2)+" · CSM "+calcAccountStats(rows).csmRW.toFixed(2);
-  var tbody=rows.map(function(r){
-    var dmClickable=r.dmReal&&INT_RESP[r.n]&&INT_RESP[r.n].dm?"<span class='score-link' data-drill='"+encodeURIComponent(r.n)+"' data-drillrole='dm'>"+scoreBarHtml(r.dmScore,true,"DM")+"</span>":scoreBarHtml(r.dmScore,r.dmReal,"DM");
-    var csmClickable=r.csmReal&&INT_RESP[r.n]&&INT_RESP[r.n].csm?"<span class='score-link' data-drill='"+encodeURIComponent(r.n)+"' data-drillrole='csm'>"+scoreBarHtml(r.csmScore,true,"CSM")+"</span>":scoreBarHtml(r.csmScore,r.csmReal,"CSM");
-    var extClickable=r.extReal&&RESP[r.n]?"<span class='score-link' data-extdrill='"+encodeURIComponent(r.n)+"'>"+scoreBarHtml(r.extScore,true,"Ext")+"</span>":scoreBarHtml(r.extScore,r.extReal,"Ext");
-    var dmVsCsm=(r.dmReal&&r.csmReal)?gapBadge(r.dmScore-r.csmScore):"";
-    return"<tr>"
-      +"<td style='font-weight:600;white-space:nowrap'>"+r.n+"</td>"
-      +"<td><span class='b "+(r.geo==="International"?"bint":"bdom")+"'>"+(r.geo==="International"?"Intl":"Dom")+"</span></td>"
-      +"<td style='font-size:12px;color:#555;white-space:nowrap'>"+r.du+"</td>"
-      +"<td><span class='b bneu' style='white-space:nowrap'>"+r.phase+"</span></td>"
-      +"<td style='font-size:12px;color:#555'>"+(r.ao||"<span style='color:#ccc'>—</span>")+"</td>"
-      +"<td style='font-size:12px;color:#555'>"+(r.dm||"<span style='color:#ccc'>—</span>")+"</td>"
-      +"<td>"+statusBadge(r.status)+"</td>"
-      +"<td>"+extClickable+"</td>"
-      +"<td>"+dmClickable+"</td>"
-      +"<td>"+csmClickable+(dmVsCsm?"<div style='margin-top:3px'>"+dmVsCsm+"</div>":"")+"</td>"
-      +"<td style='font-size:12px;color:#555;white-space:nowrap'>"+fmtRev(r.rev)+"</td>"
-      +"<td class='col-op' style='font-size:12px;color:#185FA5;word-break:break-all'>"+(r.email||"—")+"</td>"
-      +"<td class='col-op' style='font-size:12px;color:#555'>"+(r.reason||"—")+"</td>"
-      +"<td class='col-op' style='font-size:12px;color:#555'>"+(r.target||"—")+"</td>"
+  document.getElementById("tableTitle").textContent = "All accounts ("+rows.length+")";
+  var st = calcAccountStats(rows);
+  document.getElementById("tableSub").textContent = "Rev-weighted: Ext "+st.extRW.toFixed(2)+" · DM "+st.dmRW.toFixed(2)+" · CSM "+st.csmRW.toFixed(2);
+
+  // Update table headers for 2-row layout
+  document.querySelector("#mainTbl thead tr").innerHTML =
+    "<th rowspan='2' style='min-width:160px'>Account</th>"+
+    "<th rowspan='2'>Geo</th><th rowspan='2'>DU</th><th rowspan='2'>Phase</th>"+
+    "<th rowspan='2'>Del. Mgr</th><th rowspan='2'>Revenue</th>"+
+    "<th rowspan='2' style='min-width:130px'>Int. Score (DM/CSM)</th>"+
+    "<th>POC</th><th>Status</th><th style='min-width:130px'>Ext. CSAT</th>"+
+    "<th class='col-op'>Email</th>";
+
+  var tbody = rows.map(function(r) {
+    var enc = encodeURIComponent(r.n);
+    var dmHtml  = r.dmReal  && INT_RESP[r.n]&&INT_RESP[r.n].dm  ? "<span class='score-link' data-drill='"+enc+"' data-drillrole='dm'>" +scoreBarHtml(r.dmScore, true,"")+"</span>" : scoreBarHtml(r.dmScore, r.dmReal,"");
+    var csmHtml = r.csmReal && INT_RESP[r.n]&&INT_RESP[r.n].csm ? "<span class='score-link' data-drill='"+enc+"' data-drillrole='csm'>"+scoreBarHtml(r.csmScore,true,"")+"</span>" : scoreBarHtml(r.csmScore,r.csmReal,"");
+    var opExtHtml = r.opExtReal && RESP[r.n] ? "<span class='score-link' data-extdrill='"+enc+"' data-extpoc='op'>"+scoreBarHtml(r.opExtScore,true,"")+"</span>" : scoreBarHtml(r.opExtScore,r.opExtReal,"");
+    var srExtHtml = r.srExtReal && RESP[r.n] ? "<span class='score-link' data-extdrill='"+enc+"' data-extpoc='sr'>"+scoreBarHtml(r.srExtScore,true,"")+"</span>" : scoreBarHtml(r.srExtScore,r.srExtReal,"");
+    var gap = (r.dmReal&&r.csmReal) ? gapBadge(r.dmScore-r.csmScore) : "";
+    var intCell = "<div>"+dmHtml+"</div><div style='margin-top:3px'>"+csmHtml+"</div>"+(gap?"<div style='margin-top:3px'>"+gap+"</div>":"");
+    return "<tr style='border-bottom:none'>"
+      +"<td rowspan='2' style='font-weight:600;white-space:nowrap;vertical-align:middle'>"+r.n+"</td>"
+      +"<td rowspan='2' style='vertical-align:middle'><span class='b "+(r.geo==="International"?"bint":"bdom")+"'>"+(r.geo==="International"?"Intl":"Dom")+"</span></td>"
+      +"<td rowspan='2' style='font-size:12px;color:#555;white-space:nowrap;vertical-align:middle'>"+r.du+"</td>"
+      +"<td rowspan='2' style='vertical-align:middle'><span class='b bneu' style='white-space:nowrap'>"+r.phase+"</span></td>"
+      +"<td rowspan='2' style='font-size:12px;color:#555;vertical-align:middle'>"+(r.dm||"—")+"</td>"
+      +"<td rowspan='2' style='font-size:12px;color:#555;white-space:nowrap;vertical-align:middle'>"+fmtRev(r.rev)+"</td>"
+      +"<td rowspan='2' style='vertical-align:middle'>"+intCell+"</td>"
+      +"<td style='vertical-align:top;padding-top:5px'><span class='b' style='background:#e8f0fe;color:#1a56a0;font-size:10px'>Op</span> <span style='font-size:11px;color:#888'>"+(r.ao||"")+"</span></td>"
+      +"<td style='vertical-align:top;padding-top:5px'>"+statusBadge(r.opStatus)+"</td>"
+      +"<td style='vertical-align:top;padding-top:5px'>"+opExtHtml+"</td>"
+      +"<td class='col-op' style='font-size:11px;color:#aaa;vertical-align:top;padding-top:5px'>"+(r.opEmail||"—")+"</td>"
+      +"</tr>"
+      +"<tr>"
+      +"<td style='vertical-align:top;padding-bottom:5px'><span class='b' style='background:#fce8ff;color:#7a1a9a;font-size:10px'>Sr</span> <span style='font-size:11px;color:#888'>"+(r.ao||"")+"</span></td>"
+      +"<td style='vertical-align:top;padding-bottom:5px'>"+statusBadge(r.srStatus)+"</td>"
+      +"<td style='vertical-align:top;padding-bottom:5px'>"+srExtHtml+"</td>"
+      +"<td class='col-op' style='font-size:11px;color:#aaa;vertical-align:top;padding-bottom:5px'>"+(r.srEmail||"—")+"</td>"
       +"</tr>";
   }).join("");
-  document.getElementById("mainBody").innerHTML=tbody;
-  var st=calcAccountStats(rows);
-  var tRev=rows.reduce(function(a,r){return a+r.rev;},0);
-  document.getElementById("mainFoot").innerHTML="<td colspan='7' style='text-align:right'>"+rows.length+" rows</td><td></td><td style='white-space:nowrap'>DM RW: <strong class='"+scoreClass(st.dmRW)+"'>"+st.dmRW.toFixed(2)+"</strong></td><td style='white-space:nowrap'>CSM RW: <strong class='"+scoreClass(st.csmRW)+"'>"+st.csmRW.toFixed(2)+"</strong></td><td>"+fmtRev(tRev)+"</td>";
+
+  document.getElementById("mainBody").innerHTML = tbody;
+  var tRev = rows.reduce(function(a,r){return a+r.rev;},0);
+  document.getElementById("mainFoot").innerHTML =
+    "<td colspan='5' style='text-align:right'>"+rows.length+" accounts</td>"+
+    "<td>"+fmtRev(tRev)+"</td>"+
+    "<td>DM RW: <strong class='"+scoreClass(st.dmRW)+"'>"+st.dmRW.toFixed(2)+"</strong> / CSM: <strong class='"+scoreClass(st.csmRW)+"'>"+st.csmRW.toFixed(2)+"</strong></td>"+
+    "<td colspan='3'>Ext RW: <strong class='"+scoreClass(st.extRW)+"'>"+st.extRW.toFixed(2)+"</strong> ("+st.extN+" resp)</td>";
 }
 
 // ── DM vs CSM TAB ──
@@ -1522,15 +1579,33 @@ function parseTracker(csvText) {
     var duNorm  = (!du || du === '0' || du === '#N/A') ? 'Mixed' : du;
     var geoNorm = (geo === 'Domestic') ? 'Domestic' : 'International';
     if (dm) dmLookup[name] = dm;
-    accountMeta[name] = {geo: geoNorm, du: duNorm, phase: phaseNorm, rev: rev, dm: dm, ao: ao};
-    ['Contact email (Op)', 'Contact email (Sr)'].forEach(function(col) {
-      var val = row[col] || '';
-      var matches = val.match(emailPattern) || [];
-      matches.forEach(function(e) {
-        var em = e.toLowerCase().trim();
-        if (em && em.indexOf('sportzinteractive') < 0) emailLookup[em] = name;
-      });
-    });
+
+    // Extract contact emails
+    function extractEmails(val) {
+      var matches = (val || '').match(emailPattern) || [];
+      return matches.map(function(e){ return e.toLowerCase().trim(); }).filter(function(e){ return e.indexOf('sportzinteractive') < 0; });
+    }
+    var opEmails = extractEmails(row['Contact email (Op)'] || '');
+    var srEmails = extractEmails(row['Contact email (Sr)'] || '');
+
+    // Survey sent / response flags — "Yes" = true, anything else = false
+    var opSent = (row['Survey Sent (Op)'] || '').trim().toLowerCase() === 'yes';
+    var srSent = (row['Survey Sent (Sr)'] || '').trim().toLowerCase() === 'yes';
+    var opResp = (row['Response received (Op)'] || '').trim().toLowerCase() === 'yes';
+    var srResp = (row['Response received (Sr)'] || '').trim().toLowerCase() === 'yes';
+
+    // CSAT scores from tracker (manually entered)
+    var opScore = parseFloat((row['CSAT Score (Op)'] || '').replace(/[^\d.]/g,'')) || 0;
+    var srScore = parseFloat((row['CSAT Score (Sr)'] || '').replace(/[^\d.]/g,'')) || 0;
+
+    accountMeta[name] = {
+      geo: geoNorm, du: duNorm, phase: phaseNorm, rev: rev, dm: dm, ao: ao,
+      oe: opEmails, os: opSent ? 1 : 0, or: opResp ? 1 : 0, oc: opScore,
+      se: srEmails, ss: srSent ? 1 : 0, sr: srResp ? 1 : 0, sc: srScore
+    };
+
+    // Add all emails to global lookup
+    opEmails.concat(srEmails).forEach(function(em) { emailLookup[em] = name; });
   });
   return {dmLookup: dmLookup, emailLookup: emailLookup, accountMeta: accountMeta};
 }
@@ -1589,63 +1664,81 @@ function parseExtSurvey(csvText, pocType, phase) {
   return result;
 }
 
-// ── BUILD RESP FROM LIVE EXTERNAL DATA ──
+// ── BUILD RESP FROM LIVE EXTERNAL DATA — keeps op and sr separate ──
 function buildResp(extResults) {
   var RESP_LIVE = {};
   var extMeta = [
-    {key:'p1_sr', poc:'Senior POC',      phase:'Phase 1'},
-    {key:'p1_op', poc:'Operational POC', phase:'Phase 1'},
-    {key:'p2_sr', poc:'Senior POC',      phase:'Phase 2'},
-    {key:'p2_op', poc:'Operational POC', phase:'Phase 2'},
-    {key:'p3_sr', poc:'Senior POC',      phase:'Phase 3'},
-    {key:'p3_op', poc:'Operational POC', phase:'Phase 3'},
-    {key:'p4_sr', poc:'Senior POC',      phase:'Phase 4'},
-    {key:'p4_op', poc:'Operational POC', phase:'Phase 4'}
+    {key:'p1_sr', poc:'sr', phase:'Phase 1'},
+    {key:'p1_op', poc:'op', phase:'Phase 1'},
+    {key:'p2_sr', poc:'sr', phase:'Phase 2'},
+    {key:'p2_op', poc:'op', phase:'Phase 2'},
+    {key:'p3_sr', poc:'sr', phase:'Phase 3'},
+    {key:'p3_op', poc:'op', phase:'Phase 3'},
+    {key:'p4_sr', poc:'sr', phase:'Phase 4'},
+    {key:'p4_op', poc:'op', phase:'Phase 4'}
   ];
   extMeta.forEach(function(meta) {
     var parsed = extResults[meta.key];
     if (!parsed) return;
     Object.keys(parsed).forEach(function(acct) {
       if (!RESP_LIVE[acct]) RESP_LIVE[acct] = {};
-      RESP_LIVE[acct][meta.poc] = parsed[acct];
+      // Last response wins per poc type per account
+      if (!RESP_LIVE[acct][meta.poc]) RESP_LIVE[acct][meta.poc] = parsed[acct];
+      else {
+        // merge multiple phases — accumulate questions
+        RESP_LIVE[acct][meta.poc].questions = RESP_LIVE[acct][meta.poc].questions.concat(parsed[acct].questions);
+        RESP_LIVE[acct][meta.poc].open = (RESP_LIVE[acct][meta.poc].open||[]).concat(parsed[acct].open||[]);
+        var allQs = RESP_LIVE[acct][meta.poc].questions;
+        RESP_LIVE[acct][meta.poc].avg = Math.round((allQs.reduce(function(a,q){return a+q.score;},0)/allQs.length)*100)/100;
+      }
     });
   });
-  var RESP_FLAT = {};
+  // Store as {acctName: {op: {...}, sr: {...}, avg: combined}}
+  var RESP_FINAL = {};
   Object.keys(RESP_LIVE).forEach(function(acct) {
-    var pocs = RESP_LIVE[acct];
-    var allQs = [], opens = [], surveys = [];
-    Object.keys(pocs).forEach(function(poc) {
-      allQs = allQs.concat(pocs[poc].questions);
-      opens = opens.concat(pocs[poc].open || []);
-      surveys.push(pocs[poc].survey);
-    });
-    var avg = Math.round((allQs.reduce(function(a,q){return a+q.score;},0)/allQs.length)*100)/100;
-    RESP_FLAT[acct] = {avg: avg, questions: allQs, open: opens, survey: surveys.join(', '), respondent: Object.keys(pocs).join(' + ')};
+    var op = RESP_LIVE[acct].op, sr = RESP_LIVE[acct].sr;
+    var allQs = [];
+    if (op) allQs = allQs.concat(op.questions);
+    if (sr) allQs = allQs.concat(sr.questions);
+    var avg = allQs.length ? Math.round((allQs.reduce(function(a,q){return a+q.score;},0)/allQs.length)*100)/100 : 0;
+    RESP_FINAL[acct] = {
+      op: op || null, sr: sr || null,
+      avg: avg,
+      questions: allQs,
+      open: [].concat(op&&op.open||[]).concat(sr&&sr.open||[]),
+      survey: [op&&op.survey, sr&&sr.survey].filter(Boolean).join(', '),
+      respondent: [op&&'Operational POC', sr&&'Senior POC'].filter(Boolean).join(' + ')
+    };
   });
-  return RESP_FLAT;
+  return RESP_FINAL;
 }
 
 // ── UPDATE R[] WITH LIVE DATA ──
 function updateRWithLiveData(intResp, trackerParsed) {
   var meta = trackerParsed.accountMeta || {};
-  // Reset all external scores — no stale embedded data
-  R.forEach(function(acct) {
-    acct.or = 0; acct.sr = 0; acct.oc = 0; acct.sc = 0;
-    acct.oe = []; acct.se = []; acct.os = 0; acct.ss = 0;
-  });
   var rByName = {};
   R.forEach(function(acct) { rByName[acct.n] = acct; });
-  // Update every field from tracker + internal scores
+  // Update every field from tracker
   R.forEach(function(acct) {
     var n = acct.n, m = meta[n];
     if (m) {
-      if (m.geo)   acct.geo   = m.geo;
-      if (m.du)    acct.du    = m.du;
-      if (m.phase) acct.phase = m.phase;
-      if (m.rev)   acct.rev   = m.rev;
-      if (m.dm)    acct.dm    = m.dm;
-      if (m.ao)    acct.ao    = m.ao;
+      if (m.geo)             acct.geo   = m.geo;
+      if (m.du)              acct.du    = m.du;
+      if (m.phase)           acct.phase = m.phase;
+      if (m.rev)             acct.rev   = m.rev;
+      if (m.dm)              acct.dm    = m.dm;
+      if (m.ao)              acct.ao    = m.ao;
+      // Contact emails and survey status — always overwrite from tracker
+      acct.oe = m.oe || [];
+      acct.os = m.os || 0;
+      acct.or = m.or || 0;
+      acct.oc = m.oc || 0;
+      acct.se = m.se || [];
+      acct.ss = m.ss || 0;
+      acct.sr = m.sr || 0;
+      acct.sc = m.sc || 0;
     }
+    // Internal scores from survey sheets
     var ir = intResp[n];
     acct.oi      = ir && ir.dm  ? ir.dm.avg  : 0;
     acct.oi_real = !!(ir && ir.dm);
@@ -1659,7 +1752,8 @@ function updateRWithLiveData(intResp, trackerParsed) {
     R.push({
       n: name, geo: m.geo, du: m.du, phase: m.phase, rev: m.rev,
       dm: m.dm, ao: m.ao, reason: '', target: '',
-      oe: [], os: 0, or: 0, oc: 0.0, se: [], ss: 0, sr: 0, sc: 0.0,
+      oe: m.oe||[], os: m.os||0, or: m.or||0, oc: m.oc||0,
+      se: m.se||[], ss: m.ss||0, sr: m.sr||0, sc: m.sc||0,
       oi: ir && ir.dm  ? ir.dm.avg  : 0, oi_real: !!(ir && ir.dm),
       si: ir && ir.csm ? ir.csm.avg : 0, si_real: !!(ir && ir.csm)
     });
@@ -1823,17 +1917,10 @@ async function initLiveData() {
 
     if (anyExtFetched) {
       var liveResp = buildResp(extResults);
-      // Merge into RESP (live overrides embedded)
+      // Merge into RESP — live data overrides embedded
       Object.keys(liveResp).forEach(function(k){ RESP[k] = liveResp[k]; });
-      // Update R[] external scores
-      R.forEach(function(acct) {
-        var er = RESP[acct.n];
-        if (er) {
-          acct.sc = er.avg;
-          acct.or = 1; acct.sr = 1;
-          acct.oc = er.avg; acct.sc = er.avg;
-        }
-      });
+      // Note: external scores are read directly from RESP in renderAccountTable
+      // R[] contact/status fields come from tracker, not from here
     }
 
     updateLoadProgress(100, 'Done');
