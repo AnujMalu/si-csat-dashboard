@@ -1576,9 +1576,41 @@ function parseTracker(csvText) {
   var rows = parseCSV(csvText);
   var dmLookup = {}, emailLookup = {}, accountMeta = {};
   var emailPattern = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+  var lastName = null;
+
+  function parseScore(val) {
+    if (!val || val.trim() === '' || val.trim().toUpperCase() === 'NA') return 0;
+    var n = parseFloat(val.replace(/[^\d.]/g,''));
+    return (n >= 1 && n <= 5) ? n : 0;
+  }
+  function extractEmails(val) {
+    var matches = (val || '').match(emailPattern) || [];
+    return matches.map(function(e){ return e.toLowerCase().trim(); }).filter(function(e){ return e.indexOf('sportzinteractive') < 0; });
+  }
+
   rows.forEach(function(row) {
     var name = (row['Customer Name'] || '').trim();
-    if (!name) return;
+
+    // Continuation row — apply scores/emails to last known account
+    if (!name) {
+      if (!lastName || !accountMeta[lastName]) return;
+      var m = accountMeta[lastName];
+      var opScore = parseScore(row['CSAT Score (Op)'] || '');
+      if (!opScore) opScore = parseScore(row['Response received (Op)'] || '');
+      var srScore = parseScore(row['CSAT Score (Sr)'] || '');
+      if (!srScore) srScore = parseScore(row['Response received (Sr)'] || '');
+      if (opScore && !m.oc) { m.oc = opScore; m.or = 1; }
+      if (srScore && !m.sc) { m.sc = srScore; m.sr = 1; }
+      if ((row['Survey Sent (Op)']||'').toLowerCase()==='yes' && !m.os) m.os = 1;
+      if ((row['Survey Sent (Sr)']||'').toLowerCase()==='yes' && !m.ss) m.ss = 1;
+      if ((row['Response received (Op)']||'').toLowerCase()==='yes') m.or = 1;
+      if ((row['Response received (Sr)']||'').toLowerCase()==='yes') m.sr = 1;
+      extractEmails(row['Contact email (Op)']||'').forEach(function(em){ emailLookup[em]=lastName; if(m.oe.indexOf(em)<0)m.oe.push(em); });
+      extractEmails(row['Contact email (Sr)']||'').forEach(function(em){ emailLookup[em]=lastName; if(m.se.indexOf(em)<0)m.se.push(em); });
+      return;
+    }
+
+    lastName = name;
     var geo   = (row['Domestic/ International'] || '').trim();
     var du    = (row['Delivery Unit_Revised'] || row['Delivery Unit'] || '').trim();
     var phase = (row['Delivery Stage_AM'] || row['Delivery Stage_RS'] || '').trim();
@@ -1587,40 +1619,34 @@ function parseTracker(csvText) {
     var revRaw = (row['FY27 revenue'] || '').replace(/[,\s]/g, '');
     var rev   = parseFloat(revRaw) || 0;
     var phaseNorm = 'Phase 4';
-    if      (phase.indexOf('Phase 1') >= 0 || phase.indexOf('Handover') >= 0)                                           phaseNorm = 'Phase 1';
-    else if (phase.indexOf('Phase 2') >= 0 || phase.indexOf('Delivery') >= 0 || phase.indexOf('Build') >= 0)            phaseNorm = 'Phase 2';
-    else if (phase.indexOf('Phase 3') >= 0 || phase.toLowerCase().indexOf('pre go') >= 0)                               phaseNorm = 'Phase 3';
+    if      (phase.indexOf('Phase 1') >= 0 || phase.indexOf('Handover') >= 0)  phaseNorm = 'Phase 1';
+    else if (phase.indexOf('Phase 2') >= 0 || phase.indexOf('Delivery') >= 0 || phase.indexOf('Build') >= 0) phaseNorm = 'Phase 2';
+    else if (phase.indexOf('Phase 3') >= 0 || phase.toLowerCase().indexOf('pre go') >= 0) phaseNorm = 'Phase 3';
     else if (phase.indexOf('Phase 4') >= 0 || phase.toLowerCase().indexOf('post go') >= 0 || phase.toLowerCase().indexOf('maintenance') >= 0 || phase.toLowerCase().indexOf('production') >= 0) phaseNorm = 'Phase 4';
     var duNorm  = (!du || du === '0' || du === '#N/A') ? 'Mixed' : du;
     var geoNorm = (geo === 'Domestic') ? 'Domestic' : 'International';
     if (dm) dmLookup[name] = dm;
 
-    // Extract contact emails
-    function extractEmails(val) {
-      var matches = (val || '').match(emailPattern) || [];
-      return matches.map(function(e){ return e.toLowerCase().trim(); }).filter(function(e){ return e.indexOf('sportzinteractive') < 0; });
-    }
-    var opEmails = extractEmails(row['Contact email (Op)'] || '');
-    var srEmails = extractEmails(row['Contact email (Sr)'] || '');
+    var opSent = (row['Survey Sent (Op)']||'').trim().toLowerCase()==='yes';
+    var srSent = (row['Survey Sent (Sr)']||'').trim().toLowerCase()==='yes';
+    var opResp = (row['Response received (Op)']||'').trim().toLowerCase()==='yes';
+    var srResp = (row['Response received (Sr)']||'').trim().toLowerCase()==='yes';
+    var opScore = parseScore(row['CSAT Score (Op)']||'');
+    if (!opScore) opScore = parseScore(row['Response received (Op)']||'');
+    var srScore = parseScore(row['CSAT Score (Sr)']||'');
+    if (!srScore) srScore = parseScore(row['Response received (Sr)']||'');
+    if (opScore) opResp = true;
+    if (srScore) srResp = true;
 
-    // Survey sent / response flags — "Yes" = true, anything else = false
-    var opSent = (row['Survey Sent (Op)'] || '').trim().toLowerCase() === 'yes';
-    var srSent = (row['Survey Sent (Sr)'] || '').trim().toLowerCase() === 'yes';
-    var opResp = (row['Response received (Op)'] || '').trim().toLowerCase() === 'yes';
-    var srResp = (row['Response received (Sr)'] || '').trim().toLowerCase() === 'yes';
-
-    // CSAT scores from tracker (manually entered)
-    var opScore = parseFloat((row['CSAT Score (Op)'] || '').replace(/[^\d.]/g,'')) || 0;
-    var srScore = parseFloat((row['CSAT Score (Sr)'] || '').replace(/[^\d.]/g,'')) || 0;
+    var opEmails = extractEmails(row['Contact email (Op)']||'');
+    var srEmails = extractEmails(row['Contact email (Sr)']||'');
 
     accountMeta[name] = {
       geo: geoNorm, du: duNorm, phase: phaseNorm, rev: rev, dm: dm, ao: ao,
-      oe: opEmails, os: opSent ? 1 : 0, or: opResp ? 1 : 0, oc: opScore,
-      se: srEmails, ss: srSent ? 1 : 0, sr: srResp ? 1 : 0, sc: srScore
+      oe: opEmails, os: opSent?1:0, or: opResp?1:0, oc: opScore,
+      se: srEmails, ss: srSent?1:0, sr: srResp?1:0, sc: srScore
     };
-
-    // Add all emails to global lookup
-    opEmails.concat(srEmails).forEach(function(em) { emailLookup[em] = name; });
+    opEmails.concat(srEmails).forEach(function(em){ emailLookup[em] = name; });
   });
   return {dmLookup: dmLookup, emailLookup: emailLookup, accountMeta: accountMeta};
 }
