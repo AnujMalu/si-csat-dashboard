@@ -1499,15 +1499,60 @@ function buildIntResp(surveyResults) {
 }
 
 // ── PARSE EXTERNAL RESPONSES ──
+// ── PARSE TRACKER — returns {dmLookup, emailLookup, unmatchedLog} ──
+function parseTracker(csvText) {
+  var rows = parseCSV(csvText);
+  var dmLookup = {};      // accountName -> DM name
+  var emailLookup = {};   // email (lowercase) -> accountName
+
+  var emailPattern = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+
+  rows.forEach(function(row) {
+    var name = (row['Customer Name'] || '').trim();
+    if (!name) return;
+
+    // DM name
+    var dm = (row['Delivery Manager'] || '').trim();
+    if (dm) dmLookup[name] = dm;
+
+    // Extract emails from Op and Sr contact columns + any column with @
+    var emailCols = ['Contact email (Op)', 'Contact email (Sr)'];
+    emailCols.forEach(function(col) {
+      var val = row[col] || '';
+      var matches = val.match(emailPattern) || [];
+      matches.forEach(function(e) {
+        var em = e.toLowerCase().trim();
+        if (em && em.indexOf('sportzinteractive') < 0) {
+          emailLookup[em] = name;
+        }
+      });
+    });
+  });
+
+  return {dmLookup: dmLookup, emailLookup: emailLookup};
+}
+
+// Global email lookup — populated from tracker, used by ext survey parser
+var EMAIL_LOOKUP = {};
+// Unmatched responses log — shown in dashboard
+var UNMATCHED_RESPONSES = [];
+
+// ── PARSE EXTERNAL SURVEY — email-based account matching ──
 function parseExtSurvey(csvText, pocType, phase) {
   var rows = parseCSV(csvText);
   var result = {};
   rows.forEach(function(row) {
-    // Skip sportzinteractive.net test responses
-    var email = (row['Email Address'] || row['Username'] || '').toLowerCase();
+    var email = (row['Email Address'] || row['Username'] || '').toLowerCase().trim();
+
+    // Skip test responses
     if (email.indexOf('sportzinteractive.net') >= 0) return;
-    var acct = (row['Customer Name'] || row['Account Name'] || '').trim();
-    if (!acct) return;
+
+    // Resolve account name:
+    // 1. Direct email match in EMAIL_LOOKUP (built from tracker)
+    // 2. Fallback: Customer Name column in the form (may not exist)
+    // 3. If neither: flag as unmatched
+    var acct = EMAIL_LOOKUP[email] || (row['Customer Name'] || row['Account Name'] || '').trim() || null;
+
     var sqs = [], oqs = [];
     var skipCols = {'Timestamp':1,'Email Address':1,'Username':1,'Customer Name':1,'Account Name':1};
     Object.keys(row).forEach(function(col) {
@@ -1521,9 +1566,22 @@ function parseExtSurvey(csvText, pocType, phase) {
       }
     });
     if (!sqs.length) return;
+
     var avg = Math.round((sqs.reduce(function(a,q){return a+q.score;},0)/sqs.length)*100)/100;
-    // Last row wins per account per poc per phase (handles duplicates)
-    result[acct] = {avg: avg, questions: sqs, open: oqs, survey: phase + ' – ' + pocType, respondent: pocType, poc: pocType};
+
+    if (!acct) {
+      // Log as unmatched — don't drop silently
+      UNMATCHED_RESPONSES.push({
+        email: email,
+        phase: phase,
+        poc: pocType,
+        avg: avg,
+        timestamp: row['Timestamp'] || ''
+      });
+      return;
+    }
+
+    result[acct] = {avg: avg, questions: sqs, open: oqs, survey: phase + ' – ' + pocType, respondent: pocType, poc: pocType, email: email};
   });
   return result;
 }
@@ -1549,7 +1607,6 @@ function buildResp(extResults) {
       RESP_LIVE[acct][meta.poc] = parsed[acct];
     });
   });
-  // Flatten: for each account store combined avg across all poc types
   var RESP_FLAT = {};
   Object.keys(RESP_LIVE).forEach(function(acct) {
     var pocs = RESP_LIVE[acct];
@@ -1563,18 +1620,6 @@ function buildResp(extResults) {
     RESP_FLAT[acct] = {avg: avg, questions: allQs, open: opens, survey: surveys.join(', '), respondent: Object.keys(pocs).join(' + ')};
   });
   return RESP_FLAT;
-}
-
-// ── PARSE TRACKER ──
-function parseTracker(csvText) {
-  var rows = parseCSV(csvText);
-  var lookup = {};
-  rows.forEach(function(row) {
-    var name = (row['Customer Name'] || '').trim();
-    var dm = (row['Delivery Manager'] || '').trim();
-    if (name && dm) lookup[name] = dm;
-  });
-  return lookup;
 }
 
 // ── UPDATE R[] WITH LIVE DATA ──
@@ -1623,14 +1668,53 @@ function updateDataStatusBadge() {
   if (!hdr) return;
   var existing = document.getElementById('dataStatusBadge');
   if (existing) existing.remove();
+  var isLive = DATA_STATUS.source === 'live';
   var badge = document.createElement('div');
   badge.id = 'dataStatusBadge';
-  var isLive = DATA_STATUS.source === 'live';
-  badge.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid '+(isLive?'rgba(100,255,150,.4)':'rgba(255,200,100,.4)')+';color:'+(isLive?'#9effc0':'#ffd580')+';display:flex;align-items:center;gap:5px;cursor:pointer';
-  badge.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:'+(isLive?'#4dff88':'#ffaa00')+';flex-shrink:0"></span>'
-    + (isLive ? 'Live data · '+DATA_STATUS.lastFetch : 'Cached data · live fetch failed');
-  badge.title = isLive ? 'Data loaded live from Google Sheets' : 'Could not reach Google Sheets — showing last known data';
+  badge.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+  // Live/cached badge
+  var statusEl = document.createElement('div');
+  statusEl.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid '+(isLive?'rgba(100,255,150,.4)':'rgba(255,200,100,.4)')+';color:'+(isLive?'#9effc0':'#ffd580')+';display:flex;align-items:center;gap:5px;cursor:default';
+  statusEl.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:'+(isLive?'#4dff88':'#ffaa00')+';flex-shrink:0"></span>'+(isLive?'Live · '+DATA_STATUS.lastFetch:'Cached — fetch failed');
+  badge.appendChild(statusEl);
+  // Unmatched warning
+  if (UNMATCHED_RESPONSES.length > 0) {
+    var warnEl = document.createElement('div');
+    warnEl.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid rgba(255,150,50,.6);color:#ffaa60;display:flex;align-items:center;gap:5px;cursor:pointer';
+    warnEl.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:#ff8c42;flex-shrink:0"></span>'+UNMATCHED_RESPONSES.length+' unmatched response'+(UNMATCHED_RESPONSES.length>1?'s':'');
+    warnEl.title = 'Click to see responses that could not be matched to an account';
+    warnEl.onclick = function() { showUnmatchedModal(); };
+    badge.appendChild(warnEl);
+  }
   hdr.appendChild(badge);
+}
+
+function showUnmatchedModal() {
+  var rows = UNMATCHED_RESPONSES.map(function(r) {
+    return '<tr>'
+      +'<td style="padding:8px 12px;font-size:13px;color:#1a1a1a">'+r.email+'</td>'
+      +'<td style="padding:8px 12px;font-size:12px;color:#555">'+r.phase+'</td>'
+      +'<td style="padding:8px 12px;font-size:12px;color:#555">'+r.poc+'</td>'
+      +'<td style="padding:8px 12px;font-size:13px;font-weight:700;color:#8a4500">'+r.avg.toFixed(2)+'</td>'
+      +'<td style="padding:8px 12px;font-size:11px;color:#888">'+r.timestamp+'</td>'
+      +'</tr>';
+  }).join('');
+  var body = '<div>'
+    +'<div style="background:#FFF3CD;border:1px solid #FFC107;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#856404">'
+    +'These responses were received but could not be matched to any account because the email address is not in the tracker. '
+    +'To fix: add the email to the <strong>Contact email (Op)</strong> or <strong>Contact email (Sr)</strong> column in the CSAT tracker sheet for the correct account, then reload the dashboard.'
+    +'</div>'
+    +'<table style="width:100%;border-collapse:collapse">'
+    +'<thead><tr style="background:#f5f6f7">'
+    +'<th style="padding:8px 12px;text-align:left;font-size:12px;border-bottom:2px solid #e0e0e0">Email</th>'
+    +'<th style="padding:8px 12px;text-align:left;font-size:12px;border-bottom:2px solid #e0e0e0">Phase</th>'
+    +'<th style="padding:8px 12px;text-align:left;font-size:12px;border-bottom:2px solid #e0e0e0">POC Type</th>'
+    +'<th style="padding:8px 12px;text-align:left;font-size:12px;border-bottom:2px solid #e0e0e0">Avg Score</th>'
+    +'<th style="padding:8px 12px;text-align:left;font-size:12px;border-bottom:2px solid #e0e0e0">Timestamp</th>'
+    +'</tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table></div>';
+  openModal('Unmatched responses — action required', body);
 }
 
 // ── MAIN INIT: FETCH ALL SHEETS ──
@@ -1639,12 +1723,15 @@ async function initLiveData() {
   var failed = [];
 
   try {
-    // 1. Fetch tracker
+    // 1. Fetch tracker — must complete before ext surveys (email lookup needed)
     updateLoadProgress(5, 'Fetching account tracker…');
-    var trackerLookup = {};
+    var trackerDM = {};
     try {
       var trackerText = await fetchCSV(SHEET_URLS.tracker);
-      trackerLookup = parseTracker(trackerText);
+      var trackerParsed = parseTracker(trackerText);
+      trackerDM = trackerParsed.dmLookup;
+      // Populate global EMAIL_LOOKUP before ext survey parsing
+      Object.keys(trackerParsed.emailLookup).forEach(function(k){ EMAIL_LOOKUP[k] = trackerParsed.emailLookup[k]; });
     } catch(e) { failed.push('tracker'); }
 
     // 2. Fetch all 8 internal surveys in parallel
@@ -1702,11 +1789,10 @@ async function initLiveData() {
 
     if (anyIntFetched) {
       var liveIntResp = buildIntResp(surveyResults);
-      // Merge into INT_RESP (live overrides embedded)
       Object.keys(liveIntResp).forEach(function(k){ INT_RESP[k] = liveIntResp[k]; });
-      updateRWithLiveData(INT_RESP, trackerLookup);
-    } else if (Object.keys(trackerLookup).length) {
-      updateRWithLiveData(INT_RESP, trackerLookup);
+      updateRWithLiveData(INT_RESP, trackerDM);
+    } else if (Object.keys(trackerDM).length) {
+      updateRWithLiveData(INT_RESP, trackerDM);
     }
 
     if (anyExtFetched) {
