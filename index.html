@@ -174,8 +174,6 @@ body{font-family:Arial,Calibri,sans-serif;font-size:14px;color:#1a1a1a;backgroun
       <th data-col="csm_score" style="min-width:130px">CSM Score</th>
       <th data-col="rev">Revenue</th>
       <th class="col-op">Email</th>
-      <th class="col-op">Reason</th>
-      <th class="col-op">Target</th>
     </tr></thead>
     <tbody id="mainBody"></tbody>
     <tfoot><tr id="mainFoot"></tr></tfoot>
@@ -527,53 +525,79 @@ function renderAccountTable() {
   renderCompBannerAcct(rows);
   document.getElementById("tableTitle").textContent = "All accounts ("+rows.length+")";
   var st = calcAccountStats(rows);
-  document.getElementById("tableSub").textContent = "Rev-weighted: Ext "+st.extRW.toFixed(2)+" · DM "+st.dmRW.toFixed(2)+" · CSM "+st.csmRW.toFixed(2);
+  document.getElementById("tableSub").textContent = "Rev-weighted: Ext "+st.extRW.toFixed(2)+" \xb7 DM "+st.dmRW.toFixed(2)+" \xb7 CSM "+st.csmRW.toFixed(2);
 
-  // Update table headers for 2-row layout
+  // Restore original column order: Account | Geo | DU | Phase | Acct Owner | Del Mgr | Status | Ext CSAT | DM Score | CSM Score | Revenue
   document.querySelector("#mainTbl thead tr").innerHTML =
-    "<th rowspan='2' style='min-width:160px'>Account</th>"+
-    "<th rowspan='2'>Geo</th><th rowspan='2'>DU</th><th rowspan='2'>Phase</th>"+
-    "<th rowspan='2'>Del. Mgr</th><th rowspan='2'>Revenue</th>"+
-    "<th rowspan='2' style='min-width:130px'>Int. Score (DM/CSM)</th>"+
-    "<th>POC</th><th>Status</th><th style='min-width:130px'>Ext. CSAT</th>"+
+    "<th style='min-width:160px'>Account</th>"+
+    "<th>Geo</th><th>DU</th><th>Phase</th>"+
+    "<th>Acct Owner</th>"+
+    "<th>Del. Mgr</th>"+
+    "<th>Status</th>"+
+    "<th style='min-width:130px'>Ext. CSAT</th>"+
+    "<th style='min-width:130px'>DM Score</th>"+
+    "<th style='min-width:130px'>CSM Score</th>"+
+    "<th>Revenue</th>"+
     "<th class='col-op'>Email</th>";
 
   var tbody = rows.map(function(r) {
     var enc = encodeURIComponent(r.n);
-    var dmHtml  = r.dmReal  && INT_RESP[r.n]&&INT_RESP[r.n].dm  ? "<span class='score-link' data-drill='"+enc+"' data-drillrole='dm'>" +scoreBarHtml(r.dmScore, true,"")+"</span>" : scoreBarHtml(r.dmScore, r.dmReal,"");
-    var csmHtml = r.csmReal && INT_RESP[r.n]&&INT_RESP[r.n].csm ? "<span class='score-link' data-drill='"+enc+"' data-drillrole='csm'>"+scoreBarHtml(r.csmScore,true,"")+"</span>" : scoreBarHtml(r.csmScore,r.csmReal,"");
+
+    // Ext CSAT scores from live survey sheets
     var opExtHtml = r.opExtReal && RESP[r.n] ? "<span class='score-link' data-extdrill='"+enc+"' data-extpoc='op'>"+scoreBarHtml(r.opExtScore,true,"")+"</span>" : scoreBarHtml(r.opExtScore,r.opExtReal,"");
     var srExtHtml = r.srExtReal && RESP[r.n] ? "<span class='score-link' data-extdrill='"+enc+"' data-extpoc='sr'>"+scoreBarHtml(r.srExtScore,true,"")+"</span>" : scoreBarHtml(r.srExtScore,r.srExtReal,"");
-    var gap = (r.dmReal&&r.csmReal) ? gapBadge(r.dmScore-r.csmScore) : "";
-    var intCell = "<div>"+dmHtml+"</div><div style='margin-top:3px'>"+csmHtml+"</div>"+(gap?"<div style='margin-top:3px'>"+gap+"</div>":"");
-    return "<tr style='border-bottom:none'>"
-      +"<td rowspan='2' style='font-weight:600;white-space:nowrap;vertical-align:middle'>"+r.n+"</td>"
-      +"<td rowspan='2' style='vertical-align:middle'><span class='b "+(r.geo==="International"?"bint":"bdom")+"'>"+(r.geo==="International"?"Intl":"Dom")+"</span></td>"
-      +"<td rowspan='2' style='font-size:12px;color:#555;white-space:nowrap;vertical-align:middle'>"+r.du+"</td>"
-      +"<td rowspan='2' style='vertical-align:middle'><span class='b bneu' style='white-space:nowrap'>"+r.phase+"</span></td>"
-      +"<td rowspan='2' style='font-size:12px;color:#555;vertical-align:middle'>"+(r.dm||"—")+"</td>"
-      +"<td rowspan='2' style='font-size:12px;color:#555;white-space:nowrap;vertical-align:middle'>"+fmtRev(r.rev)+"</td>"
-      +"<td rowspan='2' style='vertical-align:middle'>"+intCell+"</td>"
-      +"<td style='vertical-align:top;padding-top:5px'><span class='b' style='background:#e8f0fe;color:#1a56a0;font-size:10px'>Op</span> <span style='font-size:11px;color:#888'>"+(r.ao||"")+"</span></td>"
-      +"<td style='vertical-align:top;padding-top:5px'>"+statusBadge(r.opStatus)+"</td>"
-      +"<td style='vertical-align:top;padding-top:5px'>"+opExtHtml+"</td>"
-      +"<td class='col-op' style='font-size:11px;color:#aaa;vertical-align:top;padding-top:5px'>"+(r.opEmail||"—")+"</td>"
-      +"</tr>"
-      +"<tr>"
-      +"<td style='vertical-align:top;padding-bottom:5px'><span class='b' style='background:#fce8ff;color:#7a1a9a;font-size:10px'>Sr</span> <span style='font-size:11px;color:#888'>"+(r.ao||"")+"</span></td>"
-      +"<td style='vertical-align:top;padding-bottom:5px'>"+statusBadge(r.srStatus)+"</td>"
-      +"<td style='vertical-align:top;padding-bottom:5px'>"+srExtHtml+"</td>"
-      +"<td class='col-op' style='font-size:11px;color:#aaa;vertical-align:top;padding-bottom:5px'>"+(r.srEmail||"—")+"</td>"
+
+    // DM score on Op row, CSM score on Sr row
+    var dmHtml  = r.dmReal  && INT_RESP[r.n]&&INT_RESP[r.n].dm  ? "<span class='score-link' data-drill='"+enc+"' data-drillrole='dm'>" +scoreBarHtml(r.dmScore, true,"")+"</span>" : scoreBarHtml(r.dmScore, r.dmReal,"");
+    var csmHtml = r.csmReal && INT_RESP[r.n]&&INT_RESP[r.n].csm ? "<span class='score-link' data-drill='"+enc+"' data-drillrole='csm'>"+scoreBarHtml(r.csmScore,true,"")+"</span>" : scoreBarHtml(r.csmScore,r.csmReal,"");
+    var dmVsCsm = (r.dmReal&&r.csmReal) ? "<div style='margin-top:3px'>"+gapBadge(r.dmScore-r.csmScore)+"</div>" : "";
+
+    // Shared cells span 2 rows
+    var sharedCells =
+      "<td rowspan='2' style='font-weight:600;white-space:nowrap;vertical-align:middle;border-right:1px solid #f0f0f0'>"+r.n+"</td>"+
+      "<td rowspan='2' style='vertical-align:middle'><span class='b "+(r.geo==="International"?"bint":"bdom")+"'>"+(r.geo==="International"?"Intl":"Dom")+"</span></td>"+
+      "<td rowspan='2' style='font-size:12px;color:#555;white-space:nowrap;vertical-align:middle'>"+r.du+"</td>"+
+      "<td rowspan='2' style='vertical-align:middle'><span class='b bneu' style='white-space:nowrap'>"+r.phase+"</span></td>"+
+      "<td rowspan='2' style='font-size:12px;color:#555;white-space:nowrap;vertical-align:middle'>"+fmtRev(r.rev)+"</td>"+
+      "<td rowspan='2' style='vertical-align:middle'>"+dmHtml+dmVsCsm+"</td>"+
+      "<td rowspan='2' style='vertical-align:middle'>"+csmHtml+"</td>";
+
+    // Op row (Operational POC — Del Mgr / DM score)
+    var opRow = "<tr style='border-bottom:1px dashed #f0f0f0'>"
+      +"<td style='vertical-align:middle;font-size:12px'>"
+        +"<span class='b' style='background:#e8f0fe;color:#1a56a0;font-size:10px;margin-right:3px'>Op</span>"
+        +(r.ao ? "<span style='color:#555'>"+r.ao+"</span>" : "<span style='color:#ccc'>—</span>")
+        +(r.opEmail ? "<div style='font-size:10px;color:#aaa'>"+r.opEmail+"</div>" : "")
+      +"</td>"
+      +"<td style='vertical-align:middle'>"+statusBadge(r.opStatus)+"</td>"
+      +"<td style='vertical-align:middle'>"+opExtHtml+"</td>"
+      + sharedCells
+      +"<td class='col-op' style='font-size:11px;color:#aaa;vertical-align:middle'>"+(r.opEmail||"—")+"</td>"
       +"</tr>";
+
+    // Sr row (Senior POC — CSM score)
+    var srRow = "<tr>"
+      +"<td style='vertical-align:middle;font-size:12px'>"
+        +"<span class='b' style='background:#fce8ff;color:#7a1a9a;font-size:10px;margin-right:3px'>Sr</span>"
+        +(r.ao ? "<span style='color:#555'>"+r.ao+"</span>" : "<span style='color:#ccc'>—</span>")
+        +(r.srEmail ? "<div style='font-size:10px;color:#aaa'>"+r.srEmail+"</div>" : "")
+      +"</td>"
+      +"<td style='vertical-align:middle'>"+statusBadge(r.srStatus)+"</td>"
+      +"<td style='vertical-align:middle'>"+srExtHtml+"</td>"
+      +"<td class='col-op' style='font-size:11px;color:#aaa;vertical-align:middle'>"+(r.srEmail||"—")+"</td>"
+      +"</tr>";
+
+    return opRow + srRow;
   }).join("");
 
   document.getElementById("mainBody").innerHTML = tbody;
   var tRev = rows.reduce(function(a,r){return a+r.rev;},0);
   document.getElementById("mainFoot").innerHTML =
-    "<td colspan='5' style='text-align:right'>"+rows.length+" accounts</td>"+
-    "<td>"+fmtRev(tRev)+"</td>"+
-    "<td>DM RW: <strong class='"+scoreClass(st.dmRW)+"'>"+st.dmRW.toFixed(2)+"</strong> / CSM: <strong class='"+scoreClass(st.csmRW)+"'>"+st.csmRW.toFixed(2)+"</strong></td>"+
-    "<td colspan='3'>Ext RW: <strong class='"+scoreClass(st.extRW)+"'>"+st.extRW.toFixed(2)+"</strong> ("+st.extN+" resp)</td>";
+    "<td colspan='4' style='text-align:right'>"+rows.length+" accounts</td>"+
+    "<td colspan='2'>"+fmtRev(tRev)+"</td>"+
+    "<td>DM RW: <strong class='"+scoreClass(st.dmRW)+"'>"+st.dmRW.toFixed(2)+"</strong></td>"+
+    "<td>CSM RW: <strong class='"+scoreClass(st.csmRW)+"'>"+st.csmRW.toFixed(2)+"</strong></td>"+
+    "<td>Ext RW: <strong class='"+scoreClass(st.extRW)+"'>"+st.extRW.toFixed(2)+"</strong></td>";
 }
 
 // ── DM vs CSM TAB ──
