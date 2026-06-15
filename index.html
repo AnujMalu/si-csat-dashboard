@@ -113,16 +113,16 @@ body{font-family:Arial,Calibri,sans-serif;font-size:14px;color:#1a1a1a;backgroun
 <div class="abar"><span class="abar-l">Active filters:</span><span id="atags"></span></div>
 <div class="filters" id="mainFilters">
   <div class="frow"><span class="fl">Geography</span>
-    <button class="pill" data-f="geo" data-v="All">All</button>
-    <button class="pill on" data-f="geo" data-v="International">International</button>
+    <button class="pill on" data-f="geo" data-v="All">All</button>
+    <button class="pill" data-f="geo" data-v="International">International</button>
     <button class="pill" data-f="geo" data-v="Domestic">Domestic</button>
   </div>
 <div class="frow"><span class="fl">Delivery unit<span class="flabel-sub">multi</span></span>
-    <button class="pill" data-f="du" data-v="All">All DUs</button>
-    <button class="pill multi on" data-f="du" data-v="Gaming">Gaming</button>
-    <button class="pill multi on" data-f="du" data-v="Web &amp; Mobile">Web &amp; Mobile</button>
-    <button class="pill multi on" data-f="du" data-v="Data">Data</button>
-    <button class="pill multi on" data-f="du" data-v="Video Tech">Video Tech</button>
+    <button class="pill on" data-f="du" data-v="All">All DUs</button>
+    <button class="pill multi" data-f="du" data-v="Gaming">Gaming</button>
+    <button class="pill multi" data-f="du" data-v="Web &amp; Mobile">Web &amp; Mobile</button>
+    <button class="pill multi" data-f="du" data-v="Data">Data</button>
+    <button class="pill multi" data-f="du" data-v="Video Tech">Video Tech</button>
     <button class="pill multi" data-f="du" data-v="Content Management">Content Mgmt</button>
     <button class="pill multi" data-f="du" data-v="Multiple">Multiple</button>
   </div>
@@ -1880,25 +1880,8 @@ document.addEventListener("click",function(e){
     renderOutreachTabNew(); return;
   }
 
-  // ── OUTREACH TRACKER: geo/du pills ──
-  var otPill=e.target.closest("[data-otf]");
-  if(otPill){
-    var fk=otPill.getAttribute("data-otf"),fv=otPill.getAttribute("data-v"),mi=otPill.classList.contains("multi");
-    if(!mi){
-      OT.F[fk]=fv;
-      document.querySelectorAll("[data-otf='"+fk+"']").forEach(function(p){p.classList.toggle("on",p.getAttribute("data-v")===fv);});
-    } else {
-      if(fv==="All"){OT.F[fk]=[];document.querySelectorAll("[data-otf='"+fk+"']").forEach(function(p){p.classList.toggle("on",p.getAttribute("data-v")==="All");});}
-      else{
-        if(!Array.isArray(OT.F[fk]))OT.F[fk]=[];
-        var i=OT.F[fk].indexOf(fv);i>=0?OT.F[fk].splice(i,1):OT.F[fk].push(fv);
-        document.querySelector("[data-otf='"+fk+"'][data-v='All']").classList.toggle("on",!OT.F[fk].length);
-        document.querySelectorAll("[data-otf='"+fk+"'].multi").forEach(function(p){p.classList.toggle("on",OT.F[fk].indexOf(p.getAttribute("data-v"))>=0);});
-      }
-    }
-    OT.CHIP={op:null,sr:null};OT.QUICK=null;
-    renderOutreachTabNew(); return;
-  }
+  // OT geo/du pills removed — global pills (data-f) used instead
+
 
   // ── REVIEW SCHEDULE: week toggle ──
   var rsWeek=e.target.closest("[data-rs-week]");
@@ -1962,10 +1945,7 @@ document.addEventListener("click",function(e){
       }
     }
     ACTIVE_CARD=null; uab();
-    if(TAB==="outreach") {
-      OT.F.geo = F.geo; OT.F.du = Array.isArray(F.du) ? F.du.slice() : [];
-      renderOutreachTabNew();
-    }
+    if(TAB==="outreach") renderOutreachTabNew();
     else if(TAB==="accounts")  renderAccountTable();
     else if(TAB==="dmcsm")     renderDMvCSM();
     else if(TAB==="dm")        renderDMTab();
@@ -2669,7 +2649,7 @@ function buildOTAccounts() {
   var TODAY_OT = new Date(); TODAY_OT.setHours(0,0,0,0);
   var IN7_OT = new Date(TODAY_OT); IN7_OT.setDate(IN7_OT.getDate()+7);
 
-  return R.map(function(acct) {
+  return gf().map(function(acct) {
     var opEmail = acct.oe && acct.oe.length ? acct.oe[0] : '';
     var srEmail = acct.se && acct.se.length ? acct.se[0] : '';
     var opRaw = acct.oe && acct.oe.length ? acct.oe[0] : '';
@@ -2743,12 +2723,8 @@ function otFStats(accounts, poc){
 function renderOutreachTabNew() {
   var allAccts = buildOTAccounts();
 
-  // Apply geo/du filters from OT state
-  var base = allAccts.filter(function(a){
-    if(OT.F.geo!=='All'&&a.geo!==OT.F.geo)return false;
-    if(OT.F.du&&OT.F.du.length&&OT.F.du.indexOf(a.du)<0)return false;
-    return true;
-  });
+  // base is already filtered by gf() inside buildOTAccounts()
+  var base = allAccts;
 
   // Render funnel
   ['op','sr'].forEach(function(poc){
@@ -2877,9 +2853,10 @@ function renderOutreachTabNew() {
 function otClearAll(){
   OT.CHIP={op:null,sr:null};OT.QUICK=null;OT.CF={};
   document.querySelectorAll('[data-otcf]').forEach(function(el){el.value='';});
-  OT.F={geo:'All',du:[]};
-  document.querySelectorAll('[data-otf="geo"]').forEach(function(p){p.classList.toggle('on',p.getAttribute('data-v')==='All');});
-  document.querySelectorAll('[data-otf="du"]').forEach(function(p){p.classList.toggle('on',p.getAttribute('data-v')==='All');});
+  // OT.F eliminated — filter state is in global F
+  F.geo='All'; F.du=[];
+  document.querySelectorAll('[data-f="geo"]').forEach(function(p){p.classList.toggle('on',p.getAttribute('data-v')==='All');});
+  document.querySelectorAll('[data-f="du"]').forEach(function(p){p.classList.toggle('on',p.getAttribute('data-v')==='All');});
   renderOutreachTabNew();
 }
 
@@ -2940,7 +2917,8 @@ function renderScheduleTabNew() {
   var weeks = {};
   var unscheduled = [];
 
-  R.forEach(function(acct) {
+  var filtered = gf();
+  filtered.forEach(function(acct) {
     if (!acct.reviewDate) { unscheduled.push(acct); return; }
     var monday = getMondayOfWeek(acct.reviewDate);
     var key = monday.toISOString().split('T')[0];
@@ -2963,15 +2941,15 @@ function renderScheduleTabNew() {
   sortedKeys.sort();
 
   // Headline cards
-  var totalScheduled = R.filter(function(a){return a.reviewDate;}).length;
-  var next7Count = R.filter(function(a){
+  var totalScheduled = filtered.filter(function(a){return a.reviewDate;}).length;
+  var next7Count = filtered.filter(function(a){
     if(!a.reviewDate)return false;
     var d=new Date(a.reviewDate);d.setHours(0,0,0,0);
     return d>=today&&d<=next7;
   }).length;
   var weeksCount = sortedKeys.length;
   var thisWeekKey = getMondayOfWeek(today).toISOString().split('T')[0];
-  var overdue = R.filter(function(a){ if(!a.reviewDate)return false; var d=new Date(a.reviewDate);d.setHours(0,0,0,0);return d<today; }).length;
+  var overdue = filtered.filter(function(a){ if(!a.reviewDate)return false; var d=new Date(a.reviewDate);d.setHours(0,0,0,0);return d<today; }).length;
 
   var headlineEl = document.getElementById('scheduleHeadlineNew');
   if (headlineEl) {
@@ -2979,7 +2957,7 @@ function renderScheduleTabNew() {
       return"<div class='hcard'><div class='hcard-l'>"+lbl+"</div><div class='hcard-v' style='color:"+col+"'>"+val+"</div><div class='hcard-s'>"+sub+"</div></div>";
     }
     headlineEl.innerHTML =
-      hcard('Total accounts with review date', totalScheduled, totalScheduled+' of '+R.length+' accounts scheduled', '#1F3864')+
+      hcard('Total accounts with review date', totalScheduled, totalScheduled+' of '+filtered.length+' accounts scheduled', '#1F3864')+
       hcard('Reviews in next 7 days', next7Count, next7Count?'Shown below':'None in next 7 days', next7Count?'#8a4500':'#1a7a40')+
       hcard('Weeks shown', weeksCount, 'Weeks with reviews in next 7 days', '#185FA5')+
       hcard('Overdue (past today)', overdue, 'Review date has passed', overdue?'#a02020':'#1a7a40');
