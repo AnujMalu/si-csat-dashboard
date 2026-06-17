@@ -917,90 +917,99 @@ function renderDMvCSM(){
 // ── DM TAB ──
 function renderDMTab(){
   var data=gf();
-  var dmAccts=data.filter(function(d){return d.oi_real;});
+  // Show ALL accounts from filter — score or no score
+  var dmAccts=data.slice();
   dmAccts = applyColFilters(dmAccts, 'dm');
   dmAccts.sort(function(a,b){
     var av,bv;
-    if(SORT3.col==="score"){av=a.oi;bv=b.oi;}
+    if(SORT3.col==="score"){av=a.oi_real?a.oi:-1;bv=b.oi_real?b.oi:-1;}
     else if(SORT3.col==="rev"){av=a.rev;bv=b.rev;}
     else{av=a.n.toLowerCase();bv=b.n.toLowerCase();}
     if(av<bv)return -SORT3.dir;if(av>bv)return SORT3.dir;return 0;
   });
-  var dmRW=dmAccts.length?rwAvg(dmAccts.map(function(d){return{score:d.oi,rev:d.rev};})):0;
-  var dmSimple=dmAccts.length?dmAccts.reduce(function(a,d){return a+d.oi;},0)/dmAccts.length:0;
+  // Headline averages: only scored accounts
+  var dmScored=dmAccts.filter(function(d){return d.oi_real;});
+  var dmRW=dmScored.length?rwAvg(dmScored.map(function(d){return{score:d.oi,rev:d.rev};})):0;
+  var dmSimple=dmScored.length?dmScored.reduce(function(a,d){return a+d.oi;},0)/dmScored.length:0;
   function card(lbl,val,sub,cls){return"<div class='hcard'><div class='hcard-l'>"+lbl+"</div><div class='hcard-v "+cls+"'>"+val+"</div><div class='hcard-s'>"+sub+"</div></div>";}
   var sc=function(v){return v>=4?"score-g":v>=3?"score-a":v?"score-r":"score-n";};
-  // Highest/lowest scoring DM accounts
-  var dmSorted = dmAccts.slice().sort(function(a,b){return b.oi-a.oi;});
-  var dmHighest = dmSorted.length ? dmSorted[0] : null;
-  var dmLowest  = dmSorted.length ? dmSorted[dmSorted.length-1] : null;
+  var dmSorted=dmScored.slice().sort(function(a,b){return b.oi-a.oi;});
+  var dmHighest=dmSorted.length?dmSorted[0]:null;
+  var dmLowest=dmSorted.length?dmSorted[dmSorted.length-1]:null;
   document.getElementById("dmHeadline").innerHTML=
-    card("DM Score (rev-wtd)",dmRW.toFixed(2),dmAccts.length+" accounts assessed · revenue-weighted",sc(dmRW))+
-    card("DM Score (simple avg)",dmSimple.toFixed(2),"Simple average — unweighted by revenue",sc(dmSimple))+
+    card("DM Score (rev-wtd)",dmRW.toFixed(2),dmScored.length+" responses · "+dmAccts.length+" total in view",sc(dmRW))+
+    card("DM Score (simple avg)",dmSimple.toFixed(2),"Based on "+dmScored.length+" responses only",sc(dmSimple))+
     card("Highest rated",dmHighest?dmHighest.oi.toFixed(2):"—",dmHighest?dmHighest.n:"",dmHighest?sc(dmHighest.oi):"")+
     card("Lowest rated",dmLowest&&dmLowest!==dmHighest?dmLowest.oi.toFixed(2):"—",dmLowest&&dmLowest!==dmHighest?dmLowest.n:"",dmLowest?sc(dmLowest.oi):"");
-  document.getElementById("dmSub").textContent=dmAccts.length+" accounts · Rev-weighted DM score: "+dmRW.toFixed(2);
+  document.getElementById("dmSub").textContent=dmScored.length+" responses out of "+dmAccts.length+" accounts · Rev-weighted DM score: "+dmRW.toFixed(2);
   var tbody=dmAccts.map(function(d){
     var ir=INT_RESP[d.n];
     var survey=ir&&ir.dm?ir.dm.survey:"";
-    var clickable=ir&&ir.dm?"<span class='score-link' data-drill='"+encodeURIComponent(d.n)+"' data-drillrole='dm'>"+scoreBarHtml(d.oi,true,"")+"</span>":scoreBarHtml(d.oi,true,"");
-    return"<tr>"
+    var scoreCell=d.oi_real
+      ?(ir&&ir.dm?"<span class='score-link' data-drill='"+encodeURIComponent(d.n)+"' data-drillrole='dm'>"+scoreBarHtml(d.oi,true,"")+"</span>":scoreBarHtml(d.oi,true,""))
+      :"<span style='font-size:11px;color:#bbb;font-style:italic'>No response</span>";
+    return"<tr"+(d.oi_real?"":" style='opacity:0.65'")+">"
       +"<td style='font-weight:600'>"+d.n+"</td>"
       +"<td><span class='b "+(d.geo==="International"?"bint":"bdom")+"'>"+(d.geo==="International"?"Intl":"Dom")+"</span></td>"
       +"<td style='font-size:12px;color:#555'>"+d.du+"</td>"
       +"<td><span class='b bneu'>"+d.phase+"</span></td>"
       +"<td style='font-size:12px;color:#555'>"+(d.dm||"—")+"</td>"
       +"<td style='font-size:11px;color:#888'>"+survey+"</td>"
-      +"<td>"+clickable+"</td>"
+      +"<td>"+scoreCell+"</td>"
       +"<td style='font-size:12px;color:#555;white-space:nowrap'>"+fmtRev(d.rev)+"</td>"
       +"</tr>";
   }).join("");
   document.getElementById("dmBody").innerHTML=tbody;
-  document.getElementById("dmFoot").innerHTML="<td colspan='6' style='text-align:right'>"+dmAccts.length+" accounts</td><td style='white-space:nowrap'>Rev-wtd: <strong class='"+sc(dmRW)+"'>"+dmRW.toFixed(2)+"</strong></td><td></td>";
+  document.getElementById("dmFoot").innerHTML="<td colspan='6' style='text-align:right'>"+dmScored.length+"/"+dmAccts.length+" responded</td><td style='white-space:nowrap'>Rev-wtd: <strong class='"+sc(dmRW)+"'>"+dmRW.toFixed(2)+"</strong></td><td></td>";
 }
 
 // ── CSM TAB ──
 function renderCSMTab(){
   var data=gf();
-  var csmAccts=data.filter(function(d){return d.si_real;});
+  // Show ALL accounts from filter — score or no score
+  var csmAccts=data.slice();
   csmAccts = applyColFilters(csmAccts, 'csm');
   csmAccts.sort(function(a,b){
     var av,bv;
-    if(SORT4.col==="score"){av=a.si;bv=b.si;}
+    if(SORT4.col==="score"){av=a.si_real?a.si:-1;bv=b.si_real?b.si:-1;}
     else if(SORT4.col==="rev"){av=a.rev;bv=b.rev;}
     else{av=a.n.toLowerCase();bv=b.n.toLowerCase();}
     if(av<bv)return -SORT4.dir;if(av>bv)return SORT4.dir;return 0;
   });
-  var csmRW=csmAccts.length?rwAvg(csmAccts.map(function(d){return{score:d.si,rev:d.rev};})):0;
-  var csmSimple=csmAccts.length?csmAccts.reduce(function(a,d){return a+d.si;},0)/csmAccts.length:0;
+  // Headline averages: only scored accounts
+  var csmScored=csmAccts.filter(function(d){return d.si_real;});
+  var csmRW=csmScored.length?rwAvg(csmScored.map(function(d){return{score:d.si,rev:d.rev};})):0;
+  var csmSimple=csmScored.length?csmScored.reduce(function(a,d){return a+d.si;},0)/csmScored.length:0;
   function card(lbl,val,sub,cls){return"<div class='hcard'><div class='hcard-l'>"+lbl+"</div><div class='hcard-v "+cls+"'>"+val+"</div><div class='hcard-s'>"+sub+"</div></div>";}
   var sc=function(v){return v>=4?"score-g":v>=3?"score-a":v?"score-r":"score-n";};
-  var csmSorted = csmAccts.slice().sort(function(a,b){return b.si-a.si;});
-  var csmHighest = csmSorted.length ? csmSorted[0] : null;
-  var csmLowest  = csmSorted.length ? csmSorted[csmSorted.length-1] : null;
+  var csmSorted=csmScored.slice().sort(function(a,b){return b.si-a.si;});
+  var csmHighest=csmSorted.length?csmSorted[0]:null;
+  var csmLowest=csmSorted.length?csmSorted[csmSorted.length-1]:null;
   document.getElementById("csmHeadline").innerHTML=
-    card("CSM Score (rev-wtd)",csmRW.toFixed(2),csmAccts.length+" accounts assessed · rev-weighted",sc(csmRW))+
-    card("CSM Score (simple avg)",csmSimple.toFixed(2),"Simple average — unweighted by revenue",sc(csmSimple))+
+    card("CSM Score (rev-wtd)",csmRW.toFixed(2),csmScored.length+" responses · "+csmAccts.length+" total in view",sc(csmRW))+
+    card("CSM Score (simple avg)",csmSimple.toFixed(2),"Based on "+csmScored.length+" responses only",sc(csmSimple))+
     card("Highest rated",csmHighest?csmHighest.si.toFixed(2):"—",csmHighest?csmHighest.n:"",csmHighest?sc(csmHighest.si):"")+
     card("Lowest rated",csmLowest&&csmLowest!==csmHighest?csmLowest.si.toFixed(2):"—",csmLowest&&csmLowest!==csmHighest?csmLowest.n:"",csmLowest?sc(csmLowest.si):"");
-  document.getElementById("csmSub").textContent=csmAccts.length+" accounts · Rev-weighted CSM score: "+csmRW.toFixed(2);
+  document.getElementById("csmSub").textContent=csmScored.length+" responses out of "+csmAccts.length+" accounts · Rev-weighted CSM score: "+csmRW.toFixed(2);
   var tbody=csmAccts.map(function(d){
     var ir=INT_RESP[d.n];
     var survey=ir&&ir.csm?ir.csm.survey:"";
-    var clickable=ir&&ir.csm?"<span class='score-link' data-drill='"+encodeURIComponent(d.n)+"' data-drillrole='csm'>"+scoreBarHtml(d.si,true,"")+"</span>":scoreBarHtml(d.si,true,"");
-    return"<tr>"
+    var scoreCell=d.si_real
+      ?(ir&&ir.csm?"<span class='score-link' data-drill='"+encodeURIComponent(d.n)+"' data-drillrole='csm'>"+scoreBarHtml(d.si,true,"")+"</span>":scoreBarHtml(d.si,true,""))
+      :"<span style='font-size:11px;color:#bbb;font-style:italic'>No response</span>";
+    return"<tr"+(d.si_real?"":" style='opacity:0.65'")+">"
       +"<td style='font-weight:600'>"+d.n+"</td>"
       +"<td><span class='b "+(d.geo==="International"?"bint":"bdom")+"'>"+(d.geo==="International"?"Intl":"Dom")+"</span></td>"
       +"<td style='font-size:12px;color:#555'>"+d.du+"</td>"
       +"<td><span class='b bneu'>"+d.phase+"</span></td>"
       +"<td style='font-size:12px;color:#555'>"+(d.ao||"—")+"</td>"
       +"<td style='font-size:11px;color:#888'>"+survey+"</td>"
-      +"<td>"+clickable+"</td>"
+      +"<td>"+scoreCell+"</td>"
       +"<td style='font-size:12px;color:#555;white-space:nowrap'>"+fmtRev(d.rev)+"</td>"
       +"</tr>";
   }).join("");
   document.getElementById("csmBody").innerHTML=tbody;
-  document.getElementById("csmFoot").innerHTML="<td colspan='6' style='text-align:right'>"+csmAccts.length+" accounts</td><td style='white-space:nowrap'>Rev-wtd: <strong class='"+sc(csmRW)+"'>"+csmRW.toFixed(2)+"</strong></td><td></td>";
+  document.getElementById("csmFoot").innerHTML="<td colspan='6' style='text-align:right'>"+csmScored.length+"/"+csmAccts.length+" responded</td><td style='white-space:nowrap'>Rev-wtd: <strong class='"+sc(csmRW)+"'>"+csmRW.toFixed(2)+"</strong></td><td></td>";
 }
 
 
