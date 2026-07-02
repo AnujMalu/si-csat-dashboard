@@ -3899,6 +3899,7 @@ document.addEventListener("change",function(e){
 // ══════════════════════════════════════════════════════════════════════
 
 var WR_SCREEN    = 0;   // which top-level screen
+var WR_TB_METRIC = 'ext'; // 'ext' | 'dm' | 'csm' — active metric for Top/Bottom Accounts screen
 var WR_ACCT_IDX  = 0;   // which account within screen 3 (this week) or after drill
 var WR_CAT_OPEN  = null; // which category row is expanded on screen 2
 var WR_DIM_MODAL = null; // {dim, role} currently showing in drill modal
@@ -4492,6 +4493,78 @@ function wrRenderScorecard() {
   html += wrRespModalHtml();
 
   return html;
+}
+
+function wrSetTBMetric(m) {
+  WR_TB_METRIC = m;
+  wrRender();
+}
+
+function wrRenderTopBottom() {
+  var accts = gf();
+  var metricLabel = {ext:'External CSAT', dm:'DM Assessment', csm:'CSM Assessment'}[WR_TB_METRIC];
+
+  var pool = [];
+  accts.forEach(function(a){
+    var score = null;
+    if (WR_TB_METRIC==='ext' && RESP[a.n] && RESP[a.n].avg) score = RESP[a.n].avg;
+    if (WR_TB_METRIC==='dm'  && a.oi_real) score = a.oi;
+    if (WR_TB_METRIC==='csm' && a.si_real) score = a.si;
+    if (score!==null) pool.push({name:a.n, score:score, rev:a.rev});
+  });
+
+  var sortedAsc  = pool.slice().sort(function(x,y){ return x.score - y.score; });
+  var sortedDesc = pool.slice().sort(function(x,y){ return y.score - x.score; });
+  var bottom5 = sortedAsc.slice(0,5);
+  var top5    = sortedDesc.slice(0,5);
+
+  function toggle() {
+    return "<div style='display:flex;gap:8px;margin-bottom:16px'>"
+      + ['ext','dm','csm'].map(function(m){
+          var lbl = {ext:'Customer',dm:'DM',csm:'CSM'}[m];
+          var on = m===WR_TB_METRIC;
+          return "<button onclick=\"wrSetTBMetric('"+m+"')\" style='padding:6px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid "+(on?'#1F3864':'#ddd')+";background:"+(on?'#1F3864':'#fff')+";color:"+(on?'#fff':'#555')+"'>"+lbl+"</button>";
+        }).join('')
+      + "</div>";
+  }
+
+  function accountRow(item, rank) {
+    var c = wrScoreColor(item.score), bg = wrScoreBg(item.score);
+    var revTxt = item.rev ? '₹'+(item.rev/100000).toFixed(1)+'L FY27' : 'Revenue n/a';
+    return "<div onclick=\"wrDrillAcct('"+encodeURIComponent(item.name)+"')\" style='display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;cursor:pointer;border:1px solid #eee;margin-bottom:8px' onmouseover=\"this.style.background='#f7f9fc'\" onmouseout=\"this.style.background='#fff'\">"
+      + "<div style='width:22px;text-align:center;font-size:12px;font-weight:700;color:#aaa'>"+rank+"</div>"
+      + "<div style='flex:1;min-width:0'>"
+      + "<div style='font-size:13px;font-weight:600;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+item.name+"</div>"
+      + "<div style='font-size:11px;color:#999'>"+revTxt+"</div>"
+      + "</div>"
+      + "<div style='font-size:16px;font-weight:700;color:"+c+";background:"+bg+";padding:3px 12px;border-radius:8px'>"+item.score.toFixed(2)+"</div>"
+      + "</div>";
+  }
+
+  function listBlock(title, items, emptyMsg) {
+    var html = "<div style='background:#fff;border:1px solid #eee;border-radius:12px;padding:16px;flex:1;min-width:280px'>"
+      + "<div style='font-size:13px;font-weight:700;color:#1F3864;margin-bottom:12px'>"+title+" by "+metricLabel+"</div>";
+    if (!items.length) {
+      html += "<div style='color:#aaa;font-size:13px;padding:12px 0'>"+emptyMsg+"</div>";
+    } else {
+      items.forEach(function(item,i){ html += accountRow(item, i+1); });
+    }
+    html += "</div>";
+    return html;
+  }
+
+  var out = toggle();
+  out += "<div style='display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px'>"
+    + listBlock('Bottom 5', bottom5, 'No '+metricLabel+' scores available for the current filter')
+    + listBlock('Top 5', top5, 'No '+metricLabel+' scores available for the current filter')
+    + "</div>";
+
+  out += "<div style='background:#fafbfc;border:1px dashed #ddd;border-radius:12px;padding:24px;text-align:center'>"
+    + "<div style='font-size:13px;font-weight:700;color:#1F3864;margin-bottom:6px'>Scores Received — Last 4 Weeks</div>"
+    + "<div style='font-size:12px;color:#999'>Coming soon</div>"
+    + "</div>";
+
+  return out;
 }
 
 function wrDimModalHtml() {
@@ -5539,6 +5612,7 @@ function wrUpdateActionStatus(encName, actionId, status) {
 // ══════════════════════════════════════════════════════════════════════
 var WR_SCREENS_DEF = [
   {id:'scorecard',   title:'Company Scorecard',      sub:'Overall CSAT health across all accounts'},
+  {id:'topbottom',   title:'Top & Bottom Accounts',  sub:'Best and worst performing accounts by score'},
   {id:'thisweek',    title:'Review Schedule',         sub:'This week\'s accounts + 8-week schedule'},
   {id:'actiontrack', title:'Action Tracker',          sub:'All logged actions by week and account'},
   {id:'dimensions',  title:'Score by Dimension',     sub:'Dimension breakdown across External · DM · CSM'}
@@ -5591,6 +5665,7 @@ function wrRender() {
 
   var content = '';
   if (s.id==='scorecard')   content = wrRenderScorecard();
+  if (s.id==='topbottom')   content = wrRenderTopBottom();
   if (s.id==='dimensions')  content = wrRenderDimensions();
   if (s.id==='thisweek')    content = wrRenderThisWeek();
   if (s.id==='actiontrack') content = wrRenderActionTracker();
