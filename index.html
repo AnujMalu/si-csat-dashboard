@@ -590,15 +590,13 @@ var R = buildRFromExcel(EXCEL_RAW);
 var RESP = {};
 
 // ── REVIEW SCHEDULE OVERRIDE ──
-// Only these 5 accounts are scheduled for the 13 Jul (W1) review week;
+// Only these accounts are scheduled for the 13 Jul (W1) review week;
 // every other account is explicitly removed from that week's schedule.
-var WR_SCHEDULE_OVERRIDE_WEEK = 'W1\n10 Jul';
+var WR_SCHEDULE_OVERRIDE_WEEK = 'W2\n17 Jul';
 var WR_SCHEDULE_OVERRIDE_ACCOUNTS = [
-  'ICC Business Corporation FZ LLC',   // ICC
-  'Scuderia Ferrari',                  // Ferrari
-  'World Surf League',                 // World Surf League
-  "Women's Super League",              // Women's Super League
-  'Six Nations'                        // Six Nations
+  'World Surf League',
+  "Women's Super League",
+  'Lawn Tennis Association'             // new account, not in Excel tracker — see applyNewAccounts()
 ];
 function applyReviewScheduleOverride() {
   var keep = {};
@@ -614,13 +612,38 @@ function applyReviewScheduleOverride() {
   });
 }
 
+// New accounts not present in the Excel tracker at all. Added as minimal
+// placeholders — name only, no self-assessment / DM / CSM / revenue data yet.
+function applyNewAccounts() {
+  var newAccounts = ['Lawn Tennis Association'];
+  newAccounts.forEach(function(name) {
+    if (R.some(function(a){ return a.n === name; })) return; // already added
+    R.push({
+      n: name,
+      geo: 'International', du: 'Web & Mobile', phase: '', rev: 0,
+      dm: '', ao: '',
+      reason: '', target: '',
+      oe: [], os: 0, or: 0, oc: 0,
+      se: [], ss: 0, sr: 0, sc: 0,
+      oi: 0, si: 0, oi_real: false, si_real: false,
+      reviewDate: null, reviewPriority: '', reviewWeeks: [], accountTag: '',
+      notes: 'New account — self-assessment not yet done',
+      opSentDate: null, srSentDate: null,
+      opTargetDate: null, srTargetDate: null,
+      opReasonNotSent: '', srReasonNotSent: ''
+    });
+  });
+}
+
 // Manual data corrections to the Excel tracker's Delivery Unit field.
 function applyDataCorrections() {
   R.forEach(function(a) {
     if (a.n === 'ICC Business Corporation FZ LLC') a.du = 'Multiple'; // tracker had "Data"
+    if (a.n === 'World Surf League') a.ao = 'Akshay Dixit'; // tracker had "Ayrton Caldwell"
   });
 }
 
+applyNewAccounts();
 applyReviewScheduleOverride();
 applyDataCorrections();
 
@@ -3242,6 +3265,7 @@ document.addEventListener('DOMContentLoaded', function(){
         var sn = wb.SheetNames.find(function(n){return n.toLowerCase().indexOf('customer')>=0;})||wb.SheetNames[0];
         EXCEL_RAW = XLSX.utils.sheet_to_json(wb.Sheets[sn], {defval:null, raw:false, dateNF:'yyyy-mm-dd'});
         R = buildRFromExcel(EXCEL_RAW);
+        applyNewAccounts();
         applyReviewScheduleOverride();
         applyDataCorrections();
         RESP = {};
