@@ -151,11 +151,11 @@ body{font-family:Arial,Calibri,sans-serif;font-size:14px;color:#1a1a1a;backgroun
 
 <div class="tabs-row" id="mainTabs">
   <div class="tab on" data-tab="review">⚡ Review</div>
-  <div class="tab" data-tab="outreach" style="opacity:0.4;cursor:not-allowed">Outreach</div>
-  <div class="tab" data-tab="accounts" style="opacity:0.4;cursor:not-allowed">Ext. CSAT</div>
-  <div class="tab" data-tab="dmcsm" style="opacity:0.4;cursor:not-allowed">DM vs CSM</div>
-  <div class="tab" data-tab="dm" style="opacity:0.4;cursor:not-allowed">DM</div>
-  <div class="tab" data-tab="csm" style="opacity:0.4;cursor:not-allowed">CSM</div>
+  <div class="tab" data-tab="outreach">Outreach</div>
+  <div class="tab" data-tab="accounts">Ext. CSAT</div>
+  <div class="tab" data-tab="dmcsm">DM vs CSM</div>
+  <div class="tab" data-tab="dm">DM</div>
+  <div class="tab" data-tab="csm">CSM</div>
 </div>
 
 <!-- TAB: ACCOUNT VIEW -->
@@ -2038,8 +2038,6 @@ document.addEventListener("click",function(e){
   // ── TAB SWITCH ──
   var tabEl=e.target.closest(".tabs-row .tab");
   if(tabEl){
-    // Greyed-out tabs (anything but Review) are disabled — not clickable/navigable
-    if(tabEl.getAttribute("data-tab")!=="review"){ return; }
     TAB=tabEl.getAttribute("data-tab");
     document.querySelectorAll(".tabs-row .tab").forEach(function(t){t.classList.toggle("on",t.getAttribute("data-tab")===TAB);});
     document.querySelectorAll(".tab-content").forEach(function(c){c.classList.toggle("active",c.id==="T-"+TAB);});
@@ -2968,6 +2966,15 @@ function updateDataStatusBadge() {
   statusEl.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid '+(isLive?'rgba(100,255,150,.4)':'rgba(255,200,100,.4)')+';color:'+(isLive?'#9effc0':'#ffd580')+';display:flex;align-items:center;gap:5px;cursor:default';
   statusEl.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:'+(isLive?'#4dff88':'#ffaa00')+';flex-shrink:0"></span>'+(isLive?'Live · '+DATA_STATUS.lastFetch:'Cached — fetch failed');
   badge.appendChild(statusEl);
+  // Unmatched warning
+  if (UNMATCHED_RESPONSES.length > 0) {
+    var warnEl = document.createElement('div');
+    warnEl.style.cssText = 'font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid rgba(255,150,50,.6);color:#ffaa60;display:flex;align-items:center;gap:5px;cursor:pointer';
+    warnEl.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:#ff8c42;flex-shrink:0"></span>'+UNMATCHED_RESPONSES.length+' unmatched response'+(UNMATCHED_RESPONSES.length>1?'s':'');
+    warnEl.title = 'Click to see responses that could not be matched to an account';
+    warnEl.onclick = function() { showUnmatchedModal(); };
+    badge.appendChild(warnEl);
+  }
   hdr.appendChild(badge);
 }
 
